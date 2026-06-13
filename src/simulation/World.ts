@@ -1,8 +1,8 @@
-import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEntity, DebrisEntity } from '@/types'
+import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEntity, DebrisEntity, Task, AgentType, Vec3 } from '@/types'
 import { findPath } from './pathfinding'
 import { spreadHazards } from './hazards'
 import { decayPersonUrgency, updateFogOfWar } from './entities'
-import { updateCarbonLedger } from './ledger'
+import { updateCarbonLedger, addSalvage } from './ledger'
 import { updateScore } from './scoring'
 import { bus } from '@/events/bus'
 
@@ -27,6 +27,9 @@ export function createInitialWorld(): WorldState {
       { id: 'site-1', position: { x: 120, y: 0, z: 80 },  modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-2', position: { x: 140, y: 0, z: 100 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-3', position: { x: 160, y: 0, z: 80 },  modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-4', position: { x: 120, y: 0, z: 110 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-5', position: { x: 150, y: 0, z: 120 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-6', position: { x: 170, y: 0, z: 100 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
     ],
     inventory: {
       importedTimber: 8000,
@@ -64,6 +67,7 @@ export class World {
     this.state = { ...this.state, grid: spreadHazards(this.state, deltaS) }
     this.state = decayPersonUrgency(this.state, deltaS)
     this.state = updateFogOfWar(this.state)
+    this._updateHousingAssignments()   // after discovery is set in updateFogOfWar
     this.state = updateScore(this.state)
     bus.emit('world:tick', this.state)
   }
@@ -75,6 +79,10 @@ export class World {
         const unit = this._getEntity(action.unitId) as RobotEntity | undefined
         if (!unit || unit.kind !== 'robot') return
         const path = findPath(this.state.grid, unit.position, action.task.targetPosition, unit.clearanceRadius)
+        // findPath returns null when no route exists (e.g. target walled off by fire) and [] when the unit
+        // is already on the target. Reject null so we never fabricate an arrival downstream — leave the unit
+        // idle so a later re-plan can retry once the route opens.
+        if (path === null) return
         const updated: RobotEntity = { ...unit, status: 'moving', task: { id: crypto.randomUUID(), ...action.task, startedAt: this.state.tick, assignedBy: 'commander' } }
         ;(updated as any)._path = path
         this._updateEntity(updated)
@@ -122,10 +130,17 @@ export class World {
   }
 
   private _advanceUnits(deltaS: number): void {
+    const arrivals: RobotEntity[] = []
     const entities = this.state.entities.map(e => {
       if (e.kind !== 'robot' || e.status !== 'moving') return e
-      const path: {x:number;y:number;z:number}[] | undefined = (e as any)._path
-      if (!path || path.length === 0) return { ...e, status: 'idle' as const }
+      const path: Vec3[] | undefined = (e as any)._path
+      // An empty/spent path on a moving unit means it has reached its target → arrival.
+      // (null paths never reach here — they're rejected at assign time — so this is always genuine.)
+      if (!path || path.length === 0) {
+        const arrived: RobotEntity = { ...e, status: 'working' as const }
+        arrivals.push(arrived)
+        return arrived
+      }
       const target = path[0]
       const dx = target.x - e.position.x
       const dz = target.z - e.position.z
@@ -133,13 +148,131 @@ export class World {
       const step = e.speed * deltaS * this.state.cellSizeM
       if (dist <= step) {
         const remaining = path.slice(1)
-        const arrived = remaining.length === 0
         ;(e as any)._path = remaining
-        return { ...e, position: { x: target.x, y: e.position.y, z: target.z }, status: arrived ? 'working' as const : 'moving' as const }
+        const moved: RobotEntity = { ...e, position: { x: target.x, y: e.position.y, z: target.z }, status: remaining.length === 0 ? 'working' as const : 'moving' as const }
+        if (remaining.length === 0) arrivals.push(moved)
+        return moved
       }
       return { ...e, position: { x: e.position.x + (dx / dist) * step, y: e.position.y, z: e.position.z + (dz / dist) * step } }
     })
     this.state = { ...this.state, entities }
+
+    // Resolve task consequences for everyone who just arrived, then release them to idle so the next plan
+    // tick can reassign — this is what keeps drones exploring and builders building module after module.
+    for (const r of arrivals) {
+      if (r.task) this.onTaskArrival(r, r.task)
+      this._setUnitIdle(r.id)
+    }
+  }
+
+  // Apply the real-world consequence of a unit reaching its task target.
+  private onTaskArrival(robot: RobotEntity, task: Task): void {
+    switch (task.type) {
+      case 'rescue': {
+        const target = this._getEntity(task.targetEntityId)
+        if (!target || target.kind !== 'person' || target.status === 'rescued' || target.status === 'housed') break
+        this.state = {
+          ...this.state,
+          entities: this.state.entities.map(e =>
+            e.id === target.id && e.kind === 'person'
+              ? { ...e, status: 'rescued' as const, rescuedAtTick: this.state.tick }
+              : e
+          ),
+        }
+        this._narrate('rescue', `${robot.id} reached ${target.id} — survivor secured (urgency ${Math.round((target as PersonEntity).urgencyScore)}).`)
+        break
+      }
+      case 'sort_debris': {
+        const target = this._getEntity(task.targetEntityId)
+        if (!target || target.kind !== 'debris' || target.salvaged) break
+        const debris = target as DebrisEntity
+        this.state = {
+          ...this.state,
+          entities: this.state.entities.map(e =>
+            e.id === debris.id && e.kind === 'debris' ? { ...e, salvaged: true } : e
+          ),
+        }
+        // addSalvage updates inventory + carbon; the salvaged flag above is what scoring counts.
+        this.state = addSalvage(this.state, debris.debrisType, debris.massKg, debris.kgCo2eIfSalvaged)
+        this._narrate('salvage', `Salvaged ${debris.massKg}kg ${debris.debrisType} (+${debris.kgCo2eIfSalvaged} kgCO2e avoided).`)
+        break
+      }
+      case 'build_module': {
+        const site = this.state.buildSites.find(s => s.id === task.targetEntityId)
+        if (!site || site.status === 'complete') break
+        const modulesComplete = Math.min(site.modulesRequired, site.modulesComplete + 1)
+        const complete = modulesComplete >= site.modulesRequired
+        this.state = {
+          ...this.state,
+          buildSites: this.state.buildSites.map(s =>
+            s.id === site.id ? { ...s, modulesComplete, status: complete ? 'complete' as const : 'active' as const } : s
+          ),
+        }
+        if (complete) {
+          if (site.assignedFamilyId) {
+            this.state = {
+              ...this.state,
+              entities: this.state.entities.map(e =>
+                e.id === site.assignedFamilyId && e.kind === 'person'
+                  ? { ...e, status: 'housed' as const, housedAtTick: this.state.tick }
+                  : e
+              ),
+            }
+          }
+          this._narrate('rebuild', `${site.id} complete — ${site.assignedFamilyId ?? 'family'} housed (${site.materialChoice}).`)
+        } else {
+          this._narrate('rebuild', `${site.id}: module ${modulesComplete}/${site.modulesRequired} placed.`)
+        }
+        break
+      }
+      // recon / haul_material / restore_land have no completion side-effect yet
+      default:
+        break
+    }
+  }
+
+  // Vulnerable-first housing (mission objective #1): pair each discovered, unassigned family with the
+  // next planned site and activate it, prioritizing high-vulnerability families. Tie-break by who was
+  // discovered first. Kept in one helper so the AI can later override the ordering.
+  private _updateHousingAssignments(): void {
+    const vulnRank: Record<PersonEntity['vulnerability'], number> = { high: 3, medium: 2, low: 1 }
+    const assignedFamilyIds = new Set(
+      this.state.buildSites.map(s => s.assignedFamilyId).filter((id): id is string => id !== null)
+    )
+    const families = (this.state.entities.filter(
+      e => e.kind === 'person' && (e as PersonEntity).subtype === 'displaced_family'
+    ) as PersonEntity[])
+      .filter(f => f.status === 'discovered' && !assignedFamilyIds.has(f.id))
+      .sort((a, b) => vulnRank[b.vulnerability] - vulnRank[a.vulnerability] || (a.discoveredAtTick ?? 0) - (b.discoveredAtTick ?? 0))
+    if (families.length === 0) return
+
+    let famIdx = 0
+    const buildSites = this.state.buildSites.map(site => {
+      if (site.status !== 'planned' || site.assignedFamilyId) return site
+      const fam = families[famIdx]
+      if (!fam) return site
+      famIdx++
+      return { ...site, assignedFamilyId: fam.id, status: 'active' as const }
+    })
+    if (famIdx > 0) this.state = { ...this.state, buildSites }
+  }
+
+  private _setUnitIdle(id: string): void {
+    this.state = {
+      ...this.state,
+      entities: this.state.entities.map(e => {
+        if (e.id !== id || e.kind !== 'robot') return e
+        ;(e as any)._path = undefined
+        return { ...e, status: 'idle' as const, task: null }
+      }),
+    }
+  }
+
+  private _narrate(agent: AgentType, message: string): void {
+    this.state = {
+      ...this.state,
+      commsLog: [...this.state.commsLog.slice(-99), { tick: this.state.tick, agent, message }],
+    }
   }
 }
 
@@ -174,6 +307,8 @@ function buildInitialEntities(): Entity[] {
     { kind: 'robot', id: 'sort-1',   type: 'sorting_robot',position: {x:150,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1,   clearanceRadius: 1 },
     { kind: 'robot', id: 'haul-1',   type: 'hauler',       position: {x:160,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
     { kind: 'robot', id: 'build-1',  type: 'builder_robot',position: {x:170,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
+    { kind: 'robot', id: 'build-2',  type: 'builder_robot',position: {x:180,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
+    { kind: 'robot', id: 'build-3',  type: 'builder_robot',position: {x:110,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
   ]
 
   const people: PersonEntity[] = [
@@ -181,6 +316,8 @@ function buildInitialEntities(): Entity[] {
     { kind: 'person', id: 'fam-2', subtype: 'displaced_family', position: {x:80,y:0,z:40},  status: 'undiscovered', vulnerability: 'high',   urgencyScore: 25, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 5 },
     { kind: 'person', id: 'fam-3', subtype: 'displaced_family', position: {x:120,y:0,z:80}, status: 'undiscovered', vulnerability: 'medium', urgencyScore: 10, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 3 },
     { kind: 'person', id: 'fam-4', subtype: 'displaced_family', position: {x:60,y:0,z:120}, status: 'undiscovered', vulnerability: 'low',    urgencyScore: 5,  discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 2 },
+    { kind: 'person', id: 'fam-5', subtype: 'displaced_family', position: {x:100,y:0,z:100},status: 'undiscovered', vulnerability: 'medium', urgencyScore: 15, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 4 },
+    { kind: 'person', id: 'fam-6', subtype: 'displaced_family', position: {x:140,y:0,z:60}, status: 'undiscovered', vulnerability: 'high',   urgencyScore: 30, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 5 },
     { kind: 'person', id: 'surv-1', subtype: 'survivor',        position: {x:30,y:0,z:30},  status: 'undiscovered', vulnerability: 'high',   urgencyScore: 50, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 1 },
     { kind: 'person', id: 'surv-2', subtype: 'survivor',        position: {x:100,y:0,z:50}, status: 'undiscovered', vulnerability: 'medium', urgencyScore: 30, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 1 },
   ]

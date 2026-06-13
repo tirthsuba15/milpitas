@@ -12,6 +12,26 @@ function getClient(): Anthropic {
   return _client
 }
 
+// ─── Spend safety ──────────────────────────────────────────────────────────────
+// The LLM is OPT-IN: unless VITE_USE_LLM === 'true', planningCall() returns null and
+// the app runs entirely on the deterministic fallback — $0. When enabled, a
+// SESSION-scoped budget auto-stops calls (resets on page reload, so it can never
+// silently brick a live demo) and logs loudly when it trips.
+//
+// NOTE: this is a best-effort guard, NOT a hard cap. The key is embedded in the
+// browser bundle (dangerouslyAllowBrowser), so it can be used outside this code path.
+// A real ceiling = an Anthropic Console limit + a dedicated low-balance key, and
+// ultimately a server-side proxy so the key never reaches the browser.
+const LLM_ENABLED = import.meta.env.VITE_USE_LLM === 'true' && !!import.meta.env.VITE_ANTHROPIC_API_KEY
+// Guard against a malformed VITE_LLM_BUDGET_USD: Number('abc') is NaN, and `spend >= NaN`
+// is always false → the cap would silently never trip. Fall back to $5 on anything invalid.
+const _budget = Number(import.meta.env.VITE_LLM_BUDGET_USD)
+const SESSION_BUDGET_USD = Number.isFinite(_budget) && _budget > 0 ? _budget : 5
+const SONNET_USD_PER_MTOK_IN = 3
+const SONNET_USD_PER_MTOK_OUT = 15
+let sessionSpendUsd = 0
+let budgetTripped = false
+
 export const SYSTEM_PROMPT = `You are the AI Commander for "Haven", an autonomous disaster relief and sustainable rebuilding operation.
 
 You command a fleet of robots through a disaster-struck community — rescuing survivors, salvaging debris, and rebuilding low-carbon homes for displaced families. Your mission has two objectives, in order:
@@ -97,6 +117,20 @@ BUDGET: At most 8 actions per tick. Keep every rationale under 12 words. Only na
 - Output ONLY the JSON object, no markdown, no explanation.`
 
 export async function planningCall(context: PlanningContext): Promise<AgentPlanResponse | null> {
+  // Opt-in gate: no key or VITE_USE_LLM!=='true' → never spend, just use the fallback.
+  if (!LLM_ENABLED) return null
+
+  // Session budget auto-stop (resets on reload). Best-effort, not a hard cap — see note above.
+  if (sessionSpendUsd >= SESSION_BUDGET_USD) {
+    if (!budgetTripped) {
+      console.warn(
+        `[AI] session LLM budget of $${SESSION_BUDGET_USD} reached — using fallback for the rest of this session (reload the page to reset).`,
+      )
+      budgetTripped = true
+    }
+    return null
+  }
+
   const userContent = context.humanCommand
     ? `HUMAN OVERRIDE: "${context.humanCommand}"\n\n${context.worldSummary}`
     : context.worldSummary
@@ -108,6 +142,12 @@ export async function planningCall(context: PlanningContext): Promise<AgentPlanR
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userContent }],
     })
+
+    // Account real usage against the session budget.
+    const usage = response.usage
+    sessionSpendUsd +=
+      (usage.input_tokens / 1_000_000) * SONNET_USD_PER_MTOK_IN +
+      (usage.output_tokens / 1_000_000) * SONNET_USD_PER_MTOK_OUT
 
     const text = response.content[0]?.type === 'text' ? response.content[0].text : ''
     const parsed = JSON.parse(extractJson(text))
