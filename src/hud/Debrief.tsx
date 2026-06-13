@@ -9,7 +9,9 @@ export function Debrief({ force }: { force?: boolean }) {
 
   if (!open) return null
 
-  // ── Most recent commander line, else fallback prose ──────────────────────
+  // ── Headline: AI after-action summary (store.debrief) ▸ latest commander line ▸ canned prose ──
+  // Prefer the LLM-written debrief once it lands; never show blank while it loads.
+  const debrief = useWorldStore((s) => s.debrief)
   const commsLog = world?.commsLog ?? []
   let line =
     'Housed all vulnerable families on time while cutting rebuild emissions by 81% versus a conventional build.'
@@ -19,6 +21,7 @@ export function Debrief({ force }: { force?: boolean }) {
       break
     }
   }
+  if (debrief) line = debrief
 
   // ── Bar values (compute from world if present, else fallbacks) ───────────
   const score = world?.score

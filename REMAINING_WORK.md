@@ -25,6 +25,23 @@
 
 ---
 
+## 🔎 Spec cross-check gaps (2026-06-13 audit vs Project_Details.md)
+*Core spec (§11.1) is MET — app is demo-ready on the must-haves. These are the deltas, triaged by "will a judge notice," not by count. Only the first two actually matter.*
+
+| ID | Gap | Owner | Priority | Why it matters / what to do |
+|---|---|---|---|---|
+| X-1 | **Debrief shows canned text, not the AI summary** | A (HUD) | 🔴 **HIGHEST LEVERAGE** | `commander.generateDebrief()` runs and the text is saved to `store.debrief`, but `DebriefOverlay` (HUD.tsx:64) renders a **hardcoded template** (lines 131–135) and never reads `store.debrief`. The closing beat — the last thing judges see, and the project's "compelling after-action debrief" north star — silently shows filler. **Fix is ~3 lines:** overlay reads `useWorldStore(s => s.debrief)` and renders it (template as fallback). See the handoff note below. |
+| X-2 | **`reroute` / `reprioritize` actions silently ignored** | C (Sim) | 🟠 P1 | `World.applyAction()` only handles `assign_task`/`allocate_material`/`narrate`. If the LLM emits a `reroute` during the second-storm beat (run-of-show §10 implies it), nothing happens — the "AI dodges the hazard" narrative no-ops. Add cases for `reroute` (re-path the unit avoiding given cells) and `reprioritize` (bump a task's priority). |
+| X-3 | HDRI is a drei `preset="sunset"`, not the real `.hdr` on disk | Harshith | 🟡 P2 | Looks fine; not true image-based lighting per §6.3. The 25 MB HDR files in the repo are unused. Cosmetic — nobody loses on this. |
+| X-4 | No normal maps; floodwater is a static plane | Harshith | 🟡 P2 | §6.4/§6.7 want full PBR + a rippling `Reflector`. Cosmetic; leave unless time is free. |
+| X-5 | "Build progress" missing from scoreboard | A | 🟡 P2 | §8 lists it as a primary metric; not in `MissionScore`. Minor missing number. |
+
+> **⚠️ NOT a spec gap but a silent killer — the vite-8 break is still on `main`.** `package.json` on origin still pins `vite@^8.0.16`, which breaks `@vitejs/plugin-react`'s peer dep → a **fresh clone / judge `npm install` dies on ERESOLVE.** It only runs for those of us whose `node_modules` predates the bump. **Harshith must actually push the pin to `vite@^7` — confirm it lands on `main`.** Workaround until then: `npm install --legacy-peer-deps`.
+>
+> **Cut-line (§11.3):** Restoration / Sentinel / Logistics agents, voice command, drone-camera vision are explicitly stretch — do NOT spend the last hours here.
+
+---
+
 ## 🔴 P0 — Critical path (must be done before demo)
 
 | ID | Item | Owner | Status | Description |
