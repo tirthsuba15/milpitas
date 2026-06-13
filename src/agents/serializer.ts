@@ -37,11 +37,25 @@ export function serializeWorldState(state: WorldState): string {
   const inv = state.inventory
   const invStr = `timber: ${inv.importedTimber}kg imported / ${inv.salvagedTimber.toFixed(0)}kg salvaged | panels: ${inv.importedPanels}kg imported / ${inv.recycledPanels.toFixed(0)}kg recycled`
 
+  const activeSites = state.buildSites.filter(s => s.status !== 'complete')
+  const sitesOnTimber = activeSites.filter(s => s.materialChoice !== 'recycled_panels' && s.materialChoice !== 'salvaged_timber')
+  const materialWarning =
+    inv.importedTimber === 0 && sitesOnTimber.length > 0
+      ? `\n⚠ CRITICAL: Imported timber EXHAUSTED. You MUST switch ALL active build sites to recycled_panels NOW. The FIRST actions in your response MUST be allocate_material actions (one per active site). Then narrate the carbon impact with specific numbers. Non-negotiable.`
+      : inv.importedTimber > 0 && inv.importedTimber < 2000
+        ? `\n⚠ WARNING: Imported timber low (${inv.importedTimber}kg). Prepare to switch build sites to recycled_panels.`
+        : ''
+
   const carbonPct = state.carbon.baselineKgCo2e > 0
     ? ((state.carbon.avoidedKgCo2e / state.carbon.baselineKgCo2e) * 100).toFixed(1)
     : '0'
 
   const activeEvents = state.activeEvents.length ? `ACTIVE EVENTS: ${state.activeEvents.join(', ')}` : ''
+
+  const recentComms = state.commsLog
+    .slice(-3)
+    .map(c => `  [${c.agent}] ${c.message}`)
+    .join('\n')
 
   return `=== HAVEN WORLD STATE — tick ${state.tick} (${state.elapsedSeconds.toFixed(0)}s) ===
 ${activeEvents ? activeEvents + '\n' : ''}
@@ -63,9 +77,10 @@ ${topDebris || '  (none remaining)'}
 BUILD SITES:
 ${sites}
 
-INVENTORY: ${invStr}
+INVENTORY: ${invStr}${materialWarning}
 CARBON LEDGER: ${state.carbon.avoidedKgCo2e.toFixed(0)} kgCO2e avoided vs ${state.carbon.spentKgCo2e.toFixed(0)} spent
 
+${recentComms ? `\nRECENT COMMS (do not repeat these phrasings):\n${recentComms}\n` : ''}
 INSTRUCTIONS: Issue actions to advance the mission. Prioritize high-vulnerability families. If imported timber is low, switch build sites to recycled_panels.`
 }
 
