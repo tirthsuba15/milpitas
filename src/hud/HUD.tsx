@@ -63,6 +63,9 @@ function ColdOpenCard() {
 
 function DebriefOverlay({ world }: { world: WorldState }) {
   const { score, carbon } = world
+  // AI-written after-action summary (set async on mission complete). Falls back to a
+  // templated sentence until it lands / if the LLM is disabled — never shows blank.
+  const debrief = useWorldStore(s => s.debrief)
 
   const stats = [
     { label: 'Carbon Avoided',  value: `${(carbon.avoidedKgCo2e / 1000).toFixed(1)} t`,      color: '#44ff88' },
@@ -128,10 +131,12 @@ function DebriefOverlay({ world }: { world: WorldState }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.7 }}>
-          Haven housed {score.vulnerableHousedPct.toFixed(0)}% of vulnerable families first · avoided{' '}
-          {(carbon.avoidedKgCo2e / 1000).toFixed(1)} t CO₂e vs. conventional rebuild ·{' '}
-          diverted {(score.wasteDivertedKg / 1000).toFixed(1)} t from landfill
+        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 1.7, fontStyle: debrief ? 'italic' : 'normal' }}>
+          {debrief
+            ? `"${debrief}"`
+            : <>Haven housed {score.vulnerableHousedPct.toFixed(0)}% of vulnerable families first · avoided{' '}
+                {(carbon.avoidedKgCo2e / 1000).toFixed(1)} t CO₂e vs. conventional rebuild ·{' '}
+                diverted {(score.wasteDivertedKg / 1000).toFixed(1)} t from landfill</>}
         </div>
       </div>
     </div>
