@@ -1,12 +1,8 @@
-import { useRef } from 'react'
-import { RepeatWrapping } from 'three'
-import { useTexture, Plane } from '@react-three/drei'
+import { useRef, useEffect } from 'react'
+import * as THREE from 'three'
+import { Plane } from '@react-three/drei'
 
-// PBR textures from Poly Haven (drop in public/textures/)
-// Required: ground_albedo.jpg, ground_normal.jpg, ground_roughness.jpg, ground_ao.jpg
-// Plus rubble variants: rubble_albedo.jpg, rubble_normal.jpg, rubble_roughness.jpg
-
-const GRID_SIZE_M = 250  // 50 cells × 5m
+const GRID_SIZE_M = 250
 
 export function Terrain() {
   return (
@@ -18,42 +14,49 @@ export function Terrain() {
 }
 
 function GroundPlane() {
-  // TODO (Visual Lead P2): load PBR textures and apply with repeat(8,8)
-  // const [albedo, normal, roughness, ao] = useTexture([...])
   return (
     <Plane
-      args={[GRID_SIZE_M, GRID_SIZE_M, 128, 128]}
+      args={[GRID_SIZE_M, GRID_SIZE_M, 64, 64]}
       rotation={[-Math.PI / 2, 0, 0]}
       position={[GRID_SIZE_M / 2, 0, GRID_SIZE_M / 2]}
       receiveShadow
     >
       <meshStandardMaterial
-        color="#3d2b1f"
-        roughness={0.95}
+        color="#4a7c3f"
+        roughness={0.9}
         metalness={0.0}
-        // normalMap={normal}
-        // normalScale={[1.5, 1.5]}
       />
     </Plane>
   )
 }
 
 function RubbleMounds() {
-  // TODO (Visual Lead P2): replace with InstancedMesh using rubble PBR material
-  // 200 instances of scaled/rotated box primitives
-  const positions: [number, number, number][] = [
-    [40,1,60],[70,0.5,50],[90,1.2,80],[50,0.8,100],[110,0.7,60],
-    [30,1.5,45],[80,0.6,110],[60,1,130],[95,1.1,35],[45,0.9,85],
-  ]
+  const meshRef = useRef<THREE.InstancedMesh>(null)
+
+  useEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+
+    const dummy = new THREE.Object3D()
+    const rng = (min: number, max: number) => min + Math.random() * (max - min)
+
+    for (let i = 0; i < 120; i++) {
+      // Cluster rubble in the disaster zone (northwest)
+      const x = rng(5, 90)
+      const z = rng(5, 100)
+      dummy.position.set(x, rng(0.2, 1.2), z)
+      dummy.rotation.set(rng(-0.2, 0.2), rng(0, Math.PI * 2), rng(-0.2, 0.2))
+      dummy.scale.setScalar(rng(0.4, 2.0))
+      dummy.updateMatrix()
+      mesh.setMatrixAt(i, dummy.matrix)
+    }
+    mesh.instanceMatrix.needsUpdate = true
+  }, [])
 
   return (
-    <group>
-      {positions.map(([x, y, z], i) => (
-        <mesh key={i} position={[x, y, z]} rotation={[0, i * 0.8, 0]} castShadow receiveShadow>
-          <boxGeometry args={[4 + (i % 3), 1 + (i % 2), 3 + (i % 4)]} />
-          <meshStandardMaterial color="#5a4030" roughness={1} metalness={0.05} />
-        </mesh>
-      ))}
-    </group>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, 120]} castShadow receiveShadow>
+      <boxGeometry args={[3, 1, 2]} />
+      <meshStandardMaterial color="#7a6050" roughness={1} metalness={0.05} />
+    </instancedMesh>
   )
 }

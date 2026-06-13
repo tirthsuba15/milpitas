@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { Environment, Stats } from '@react-three/drei'
+import { Sky, OrbitControls, Stats } from '@react-three/drei'
 import { Suspense } from 'react'
 import { Terrain } from './Terrain'
 import { RobotFleet } from './RobotFleet'
@@ -8,23 +8,28 @@ import { Hazards } from './Hazards'
 import { Buildings } from './Buildings'
 import { FogOfWar } from './FogOfWar'
 import { PostProcessing } from './PostProcessing'
-import { Camera } from './Camera'
 
 export function Scene() {
   return (
     <Canvas
       shadows
       gl={{ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' }}
-      camera={{ fov: 55, near: 0.5, far: 2000, position: [80, 60, 80] }}
+      camera={{ fov: 55, near: 0.5, far: 2000, position: [125, 120, 280] }}
       dpr={[1, 1.5]}
     >
       <Suspense fallback={null}>
-        {/* Environment: HDRI from public/hdri/ — smoke-filled overcast */}
-        <Environment files="/hdri/kloofendal_overcast.hdr" background backgroundBlurriness={0.05} />
+        {/* Sky with visible sun */}
+        <Sky
+          sunPosition={[100, 80, -80]}
+          turbidity={6}
+          rayleigh={1.5}
+          mieCoefficient={0.005}
+          mieDirectionalG={0.8}
+        />
 
-        {/* Single directional sun for crisp shadows */}
+        {/* Sun-matched directional light */}
         <directionalLight
-          position={[80, 120, -60]}
+          position={[100, 80, -80]}
           intensity={1.4}
           castShadow
           shadow-mapSize={[2048, 2048]}
@@ -35,7 +40,9 @@ export function Scene() {
           shadow-camera-top={200}
           shadow-camera-bottom={-200}
         />
-        <ambientLight intensity={0.2} />
+        {/* Sky-bounce fill light — blue from above, green from ground */}
+        <hemisphereLight args={['#87ceeb', '#4a7c3f', 0.5]} />
+        <ambientLight intensity={0.15} />
 
         <Terrain />
         <Hazards />
@@ -43,8 +50,20 @@ export function Scene() {
         <Buildings />
         <RobotFleet />
         <Markers />
-        <Camera />
         <PostProcessing />
+
+        {/* Camera controls — scroll to zoom, drag to orbit, right-click to pan */}
+        <OrbitControls
+          target={[125, 0, 125]}
+          minDistance={20}
+          maxDistance={500}
+          maxPolarAngle={Math.PI / 2.1}
+          enablePan
+          enableZoom
+          enableRotate
+          zoomSpeed={1.2}
+          panSpeed={1.0}
+        />
 
         {import.meta.env.DEV && <Stats />}
       </Suspense>

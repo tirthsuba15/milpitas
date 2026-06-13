@@ -1,5 +1,4 @@
 import { Scoreboard } from './Scoreboard'
-import { CarbonMeter } from './CarbonMeter'
 import { CommsLog } from './CommsLog'
 import { MissionClock } from './MissionClock'
 import { OperatorPanel } from './OperatorPanel'
@@ -13,9 +12,6 @@ export function HUD() {
       </div>
       <div className={styles.topCenter}>
         <Scoreboard />
-      </div>
-      <div className={styles.rightPanel}>
-        <CarbonMeter />
       </div>
       <div className={styles.bottomRight}>
         <CommsLog />

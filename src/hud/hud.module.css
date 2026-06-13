@@ -4,51 +4,50 @@
   pointer-events: none;
   display: grid;
   grid-template-areas:
-    "topleft topcenter rightpanel"
-    ".       .         rightpanel"
-    "bottomcenter bottomcenter rightpanel"
-    "bottomright bottomright rightpanel";
-  grid-template-columns: 220px 1fr 240px;
-  grid-template-rows: auto 1fr auto auto;
-  gap: 12px;
-  padding: 16px;
+    "topleft topcenter ."
+    ".       .         ."
+    "bottomcenter bottomcenter bottomright";
+  grid-template-columns: 240px 1fr 300px;
+  grid-template-rows: auto 1fr auto;
+  gap: 14px;
+  padding: 18px;
 }
 
 .glass {
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 8px;
-  padding: 10px 14px;
-  color: #e0e0e0;
-  font-family: 'Roboto Mono', 'Courier New', monospace;
+  background: rgba(0, 0, 0, 0.60);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px 18px;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .topLeft     { grid-area: topleft; }
 .topCenter   { grid-area: topcenter; display: flex; justify-content: center; }
-.rightPanel  { grid-area: rightpanel; }
 .bottomRight { grid-area: bottomright; }
 .bottomCenter{ grid-area: bottomcenter; display: flex; justify-content: center; }
 
 .label {
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #888;
-  margin-bottom: 2px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 3px;
 }
 
 .bigNumber {
-  font-size: 48px;
+  font-size: 56px;
   font-weight: 700;
-  color: #00d4ff;
+  color: #ffffff;
   line-height: 1;
-  text-shadow: 0 0 20px rgba(0,212,255,0.5);
 }
 
-.cyan   { color: #00d4ff; }
-.amber  { color: #ffaa00; }
-.green  { color: #44ff88; }
-.red    { color: #ff4444; }
-.white  { color: #ffffff; }
-.muted  { color: #666; }
+.statValue {
+  font-size: 28px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.muted { color: rgba(255, 255, 255, 0.5); }

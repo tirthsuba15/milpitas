@@ -1,25 +1,20 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import * as THREE from 'three'
 import { useWorldStore } from '@/store/worldStore'
 import type { RobotEntity, RobotStatus } from '@/types'
 
 const STATUS_COLORS: Record<RobotStatus, string> = {
-  idle:    '#4488ff',
-  moving:  '#44aaff',
-  working: '#44ff88',
-  blocked: '#ffaa00',
-  failed:  '#ff4444',
+  idle:    '#aaaaaa',
+  moving:  '#ffffff',
+  working: '#ccffcc',
+  blocked: '#ffddaa',
+  failed:  '#ffaaaa',
 }
 
-const ROBOT_COLORS: Record<string, string> = {
-  recon_drone:    '#88ccff',
-  rescue_unit:    '#ff8844',
-  medic:          '#ff44aa',
-  sorting_robot:  '#aaaa44',
-  hauler:         '#886644',
-  builder_robot:  '#44aa88',
-  restoration_unit:'#88ff44',
-}
+const DRONE_POSITIONS: [number, number, number][] = [
+  [0.9, 0, 0.9], [-0.9, 0, 0.9], [0.9, 0, -0.9], [-0.9, 0, -0.9],
+]
 
 export function RobotFleet() {
   const world = useWorldStore(s => s.world)
@@ -38,22 +33,85 @@ export function RobotFleet() {
 
 function RobotMesh({ robot }: { robot: RobotEntity }) {
   const isDrone = robot.type === 'recon_drone'
-  const color = ROBOT_COLORS[robot.type] ?? '#ffffff'
   const glowColor = STATUS_COLORS[robot.status]
 
   return (
     <group position={[robot.position.x, robot.position.y, robot.position.z]}>
-      {/* Body — TODO (Visual Lead P3): replace with loaded GLB model */}
+      {isDrone ? <DroneMesh /> : <GroundUnitMesh />}
+      <GlowRing color={glowColor} pulse={robot.status === 'working'} />
+    </group>
+  )
+}
+
+function DroneMesh() {
+  const propRef = useRef<THREE.Group>(null)
+
+  useFrame(({ clock }) => {
+    if (propRef.current) {
+      propRef.current.rotation.y = clock.elapsedTime * 18
+    }
+  })
+
+  return (
+    <group>
+      {/* Central body */}
       <mesh castShadow>
-        {isDrone
-          ? <cylinderGeometry args={[0.8, 0.8, 0.3, 8]} />
-          : <capsuleGeometry args={[0.4, 1.2, 4, 8]} />
-        }
-        <meshStandardMaterial color={color} roughness={0.3} metalness={0.7} />
+        <cylinderGeometry args={[0.55, 0.55, 0.22, 10]} />
+        <meshStandardMaterial color="#303030" roughness={0.2} metalness={0.9} />
       </mesh>
 
-      {/* Status glow ring on the ground */}
-      <GlowRing color={glowColor} pulse={robot.status === 'working'} />
+      {/* Camera dome under body */}
+      <mesh position={[0, -0.18, 0]}>
+        <sphereGeometry args={[0.2, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#111111" roughness={0.05} metalness={0.8} />
+      </mesh>
+
+      {/* 4 arms */}
+      {DRONE_POSITIONS.map(([x, , z], i) => (
+        <mesh key={i} position={[x * 0.5, 0, z * 0.5]} rotation={[0, Math.atan2(x, z), 0]} castShadow>
+          <boxGeometry args={[0.12, 0.06, 1.3]} />
+          <meshStandardMaterial color="#222222" roughness={0.4} metalness={0.7} />
+        </mesh>
+      ))}
+
+      {/* Spinning propellers */}
+      <group ref={propRef}>
+        {DRONE_POSITIONS.map(([x, , z], i) => (
+          <mesh key={i} position={[x, 0.1, z]} rotation={[-Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.42, 0.42, 0.04, 6]} />
+            <meshStandardMaterial color="#555555" roughness={0.3} transparent opacity={0.85} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  )
+}
+
+function GroundUnitMesh() {
+  return (
+    <group>
+      {/* Main body */}
+      <mesh position={[0, 0.7, 0]} castShadow>
+        <boxGeometry args={[0.8, 1.0, 1.2]} />
+        <meshStandardMaterial color="#4a6080" roughness={0.5} metalness={0.6} />
+      </mesh>
+      {/* Head */}
+      <mesh position={[0, 1.35, 0]} castShadow>
+        <boxGeometry args={[0.6, 0.5, 0.6]} />
+        <meshStandardMaterial color="#384858" roughness={0.4} metalness={0.6} />
+      </mesh>
+      {/* Eye visor */}
+      <mesh position={[0, 1.38, 0.32]}>
+        <boxGeometry args={[0.4, 0.12, 0.05]} />
+        <meshStandardMaterial color="#88ccff" roughness={0.05} metalness={0.5} emissive="#4488cc" emissiveIntensity={0.4} />
+      </mesh>
+      {/* Wheels */}
+      {([-0.5, 0.5] as const).map((x, i) => (
+        <mesh key={i} position={[x, 0.18, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.18, 0.18, 0.12, 8]} />
+          <meshStandardMaterial color="#222222" roughness={0.9} />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -62,14 +120,14 @@ function GlowRing({ color, pulse }: { color: string; pulse: boolean }) {
   const ref = useRef<any>(null)
   useFrame(({ clock }) => {
     if (ref.current && pulse) {
-      ref.current.material.opacity = 0.5 + Math.sin(clock.elapsedTime * 4) * 0.3
+      ref.current.material.opacity = 0.4 + Math.sin(clock.elapsedTime * 4) * 0.2
     }
   })
 
   return (
-    <mesh ref={ref} position={[0, -0.6, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <mesh ref={ref} position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.9, 1.3, 32]} />
-      <meshBasicMaterial color={color} transparent opacity={0.7} />
+      <meshBasicMaterial color={color} transparent opacity={0.5} />
     </mesh>
   )
 }
