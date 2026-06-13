@@ -23,6 +23,8 @@ export function FogOfWar() {
 
   useEffect(() => {
     if (!world || !textureRef.current) return
+    // Rebuild texture every 5 ticks (~165ms) — imperceptible lag, saves GPU upload cost
+    if (world.tick % 5 !== 0) return
     const { grid, gridWidth: W, gridHeight: H } = world
     const data = textureRef.current.image.data as Uint8Array
 

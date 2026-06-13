@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { Sky, OrbitControls, Stats } from '@react-three/drei'
+import { OrbitControls, Stats, Environment } from '@react-three/drei'
 import { Suspense } from 'react'
 import { Terrain } from './Terrain'
 import { RobotFleet } from './RobotFleet'
@@ -8,8 +8,12 @@ import { Hazards } from './Hazards'
 import { Buildings } from './Buildings'
 import { FogOfWar } from './FogOfWar'
 import { PostProcessing } from './PostProcessing'
+import { Camera } from './Camera'
+import { useWorldStore } from '@/store/worldStore'
 
 export function Scene() {
+  const isRunning = useWorldStore(s => s.isRunning)
+
   return (
     <Canvas
       shadows
@@ -18,19 +22,17 @@ export function Scene() {
       dpr={[1, 1.5]}
     >
       <Suspense fallback={null}>
-        {/* Sky with visible sun */}
-        <Sky
-          sunPosition={[100, 80, -80]}
-          turbidity={6}
-          rayleigh={1.5}
-          mieCoefficient={0.005}
-          mieDirectionalG={0.8}
+        {/* HDRI environment — ambient IBL + cinematic overcast sky background */}
+        <Environment
+          files="/hdri/kloofendal_overcast.hdr"
+          background
+          backgroundBlurriness={0.06}
         />
 
-        {/* Sun-matched directional light */}
+        {/* Sun directional light for crisp shadows */}
         <directionalLight
           position={[100, 80, -80]}
-          intensity={1.4}
+          intensity={1.6}
           castShadow
           shadow-mapSize={[2048, 2048]}
           shadow-camera-near={0.5}
@@ -40,9 +42,8 @@ export function Scene() {
           shadow-camera-top={200}
           shadow-camera-bottom={-200}
         />
-        {/* Sky-bounce fill light — blue from above, green from ground */}
-        <hemisphereLight args={['#87ceeb', '#4a7c3f', 0.5]} />
-        <ambientLight intensity={0.15} />
+        {/* Warm fill from below — simulates fire-lit ground glow in disaster zone */}
+        <hemisphereLight args={['#8ab0cc', '#6b4a2a', 0.25]} />
 
         <Terrain />
         <Hazards />
@@ -52,18 +53,22 @@ export function Scene() {
         <Markers />
         <PostProcessing />
 
-        {/* Camera controls — scroll to zoom, drag to orbit, right-click to pan */}
-        <OrbitControls
-          target={[125, 0, 125]}
-          minDistance={20}
-          maxDistance={500}
-          maxPolarAngle={Math.PI / 2.1}
-          enablePan
-          enableZoom
-          enableRotate
-          zoomSpeed={1.2}
-          panSpeed={1.0}
-        />
+        {/* Scripted cinematic camera during the demo; free orbit before START */}
+        {isRunning ? (
+          <Camera />
+        ) : (
+          <OrbitControls
+            target={[125, 0, 125]}
+            minDistance={20}
+            maxDistance={500}
+            maxPolarAngle={Math.PI / 2.1}
+            enablePan
+            enableZoom
+            enableRotate
+            zoomSpeed={1.2}
+            panSpeed={1.0}
+          />
+        )}
 
         {import.meta.env.DEV && <Stats />}
       </Suspense>

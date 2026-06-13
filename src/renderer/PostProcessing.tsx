@@ -3,12 +3,29 @@ import {
   Bloom,
   Vignette,
   ToneMapping,
+  SSAO,
 } from '@react-three/postprocessing'
-import { ToneMappingMode } from 'postprocessing'
+import { ToneMappingMode, BlendFunction } from 'postprocessing'
 
 export function PostProcessing() {
   return (
-    <EffectComposer multisampling={4}>
+    // enableNormalPass is required for SSAO
+    <EffectComposer multisampling={4} enableNormalPass>
+      {/* SSAO — grounds objects, adds depth (cut first if FPS drops) */}
+      <SSAO
+        blendFunction={BlendFunction.MULTIPLY}
+        samples={16}
+        rings={3}
+        intensity={8}
+        luminanceInfluence={0.6}
+        radius={0.05}
+        bias={0.04}
+        worldDistanceThreshold={20}
+        worldDistanceFalloff={0.05}
+        worldProximityThreshold={0.5}
+        worldProximityFalloff={0.1}
+      />
+
       {/* Bloom — makes fire particles, markers, and solar glass glow */}
       <Bloom
         luminanceThreshold={0.55}

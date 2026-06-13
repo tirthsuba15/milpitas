@@ -23,13 +23,15 @@ export function createInitialWorld(): WorldState {
     gridWidth: GRID_W,
     gridHeight: GRID_H,
     cellSizeM: CELL_SIZE_M,
+    // 2×3 neighbourhood grid — row 1 at z=58, row 2 at z=90; columns at x=145/165/185
+    // roads run between rows at z=76 and along the block edge at x=133
     buildSites: [
-      { id: 'site-1', position: { x: 120, y: 0, z: 80 },  modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-2', position: { x: 140, y: 0, z: 100 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-3', position: { x: 160, y: 0, z: 80 },  modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-4', position: { x: 120, y: 0, z: 110 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-5', position: { x: 150, y: 0, z: 120 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-6', position: { x: 170, y: 0, z: 100 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-1', position: { x: 145, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-2', position: { x: 165, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-3', position: { x: 185, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-4', position: { x: 145, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-5', position: { x: 165, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
+      { id: 'site-6', position: { x: 185, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
     ],
     inventory: {
       importedTimber: 8000,
@@ -315,17 +317,18 @@ function buildGrid(): GridCell[][] {
 }
 
 function buildInitialEntities(): Entity[] {
+  // Robots staged in two neat rows at the south edge, visible from opening camera angle
   const robots: RobotEntity[] = [
-    { kind: 'robot', id: 'drone-1', type: 'recon_drone',   position: {x:125,y:2,z:225}, status: 'idle', task: null, batteryLevel: 1, speed: 4, clearanceRadius: 0 },
-    { kind: 'robot', id: 'drone-2', type: 'recon_drone',   position: {x:135,y:2,z:225}, status: 'idle', task: null, batteryLevel: 1, speed: 4, clearanceRadius: 0 },
-    { kind: 'robot', id: 'rescue-1', type: 'rescue_unit',  position: {x:120,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1.5, clearanceRadius: 1 },
-    { kind: 'robot', id: 'rescue-2', type: 'rescue_unit',  position: {x:130,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1.5, clearanceRadius: 1 },
-    { kind: 'robot', id: 'medic-1',  type: 'medic',        position: {x:140,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
-    { kind: 'robot', id: 'sort-1',   type: 'sorting_robot',position: {x:150,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1,   clearanceRadius: 1 },
-    { kind: 'robot', id: 'haul-1',   type: 'hauler',       position: {x:160,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
-    { kind: 'robot', id: 'build-1',  type: 'builder_robot',position: {x:170,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
-    { kind: 'robot', id: 'build-2',  type: 'builder_robot',position: {x:180,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
-    { kind: 'robot', id: 'build-3',  type: 'builder_robot',position: {x:110,y:0,z:230}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
+    { kind: 'robot', id: 'drone-1',  type: 'recon_drone',   position: {x:138,y:3,z:215}, status: 'idle', task: null, batteryLevel: 1, speed: 4,   clearanceRadius: 0 },
+    { kind: 'robot', id: 'drone-2',  type: 'recon_drone',   position: {x:150,y:3,z:215}, status: 'idle', task: null, batteryLevel: 1, speed: 4,   clearanceRadius: 0 },
+    { kind: 'robot', id: 'rescue-1', type: 'rescue_unit',   position: {x:138,y:0,z:222}, status: 'idle', task: null, batteryLevel: 1, speed: 1.5, clearanceRadius: 1 },
+    { kind: 'robot', id: 'rescue-2', type: 'rescue_unit',   position: {x:148,y:0,z:222}, status: 'idle', task: null, batteryLevel: 1, speed: 1.5, clearanceRadius: 1 },
+    { kind: 'robot', id: 'medic-1',  type: 'medic',         position: {x:158,y:0,z:222}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
+    { kind: 'robot', id: 'sort-1',   type: 'sorting_robot', position: {x:138,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 1,   clearanceRadius: 1 },
+    { kind: 'robot', id: 'haul-1',   type: 'hauler',        position: {x:148,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
+    { kind: 'robot', id: 'build-1',  type: 'builder_robot', position: {x:158,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
+    { kind: 'robot', id: 'build-2',  type: 'builder_robot', position: {x:168,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
+    { kind: 'robot', id: 'build-3',  type: 'builder_robot', position: {x:178,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
   ]
 
   const people: PersonEntity[] = [

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useWorldStore } from '@/store/worldStore'
 import { commander } from '@/agents/Commander'
 import { bus } from '@/events/bus'
+import { startDemoSequence } from '@/scenarios/initial'
 import styles from './hud.module.css'
 
 export function OperatorPanel() {
@@ -16,10 +17,16 @@ export function OperatorPanel() {
     setInput('')
   }
 
+  const handleStartStop = () => {
+    const next = !isRunning
+    setRunning(next)
+    if (next) startDemoSequence()
+  }
+
   return (
     <div className={styles.glass} style={{ display: 'flex', gap: 8, alignItems: 'center', pointerEvents: 'auto' }}>
       {/* Start / stop */}
-      <button onClick={() => setRunning(!isRunning)} style={btnStyle(isRunning ? '#ff4444' : '#44ff88')}>
+      <button onClick={handleStartStop} style={btnStyle(isRunning ? '#ff4444' : '#44ff88')}>
         {isRunning ? '⏹ STOP' : '▶ START'}
       </button>
 

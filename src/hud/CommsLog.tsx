@@ -30,7 +30,7 @@ export function CommsLog() {
   }, [entries.length])
 
   return (
-    <div className={styles.glass} style={{ width: 420, maxHeight: 200, overflowY: 'auto', pointerEvents: 'auto' }}>
+    <div className={styles.glass} style={{ width: '100%', maxHeight: 240, overflowY: 'auto', pointerEvents: 'auto' }}>
       <div className={styles.label} style={{ marginBottom: 6 }}>Mission Comms</div>
       {entries.length === 0 && <div className={styles.muted} style={{ fontSize: 12 }}>Awaiting deployment…</div>}
       {entries.map((entry, i) => (

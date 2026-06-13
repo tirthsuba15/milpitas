@@ -21,15 +21,22 @@ export function Hazards() {
   )
 }
 
+const PARTICLES_PER_CELL = 6
+const MAX_FIRE_CELLS = Math.floor(500 / PARTICLES_PER_CELL) // keeps total ≤ 500 particles
+
 function FireParticles({ cells, cellSizeM }: { cells: GridCell[]; cellSizeM: number }) {
   const ref = useRef<THREE.Points>(null)
-  const PARTICLES_PER_CELL = 6
-  const total = cells.length * PARTICLES_PER_CELL
+
+  // Prioritise cells with highest fire intensity; cap to avoid frame drops
+  const activeCells = cells.length > MAX_FIRE_CELLS
+    ? cells.slice(0, MAX_FIRE_CELLS)
+    : cells
+  const total = activeCells.length * PARTICLES_PER_CELL
 
   const { positions, colors } = useMemo(() => {
     const pos = new Float32Array(total * 3)
     const col = new Float32Array(total * 3)
-    cells.forEach((cell, ci) => {
+    activeCells.forEach((cell, ci) => {
       for (let p = 0; p < PARTICLES_PER_CELL; p++) {
         const i = (ci * PARTICLES_PER_CELL + p) * 3
         pos[i]   = cell.x * cellSizeM + (Math.random() - 0.5) * cellSizeM
@@ -40,9 +47,9 @@ function FireParticles({ cells, cellSizeM }: { cells: GridCell[]; cellSizeM: num
       }
     })
     return { positions: pos, colors: col }
-  }, [cells.length])
+  }, [activeCells.length])
 
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (!ref.current) return
     const pos = ref.current.geometry.attributes.position.array as Float32Array
     for (let i = 0; i < total; i++) {

@@ -4,19 +4,20 @@
   pointer-events: none;
   display: grid;
   grid-template-areas:
-    "topleft topcenter ."
-    ".       .         ."
+    "topleft    topcenter topright"
+    ".          .         topright"
     "bottomcenter bottomcenter bottomright";
-  grid-template-columns: 240px 1fr 300px;
+  grid-template-columns: 240px 1fr 270px;
   grid-template-rows: auto 1fr auto;
   gap: 14px;
   padding: 18px;
 }
 
 .glass {
-  background: rgba(0, 0, 0, 0.60);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 10px;
   padding: 12px 18px;
   color: #ffffff;
@@ -25,15 +26,16 @@
 
 .topLeft     { grid-area: topleft; }
 .topCenter   { grid-area: topcenter; display: flex; justify-content: center; }
+.topRight    { grid-area: topright; display: flex; flex-direction: column; overflow-y: auto; }
 .bottomRight { grid-area: bottomright; }
 .bottomCenter{ grid-area: bottomcenter; display: flex; justify-content: center; }
 
 .label {
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(255, 255, 255, 0.5);
   margin-bottom: 3px;
 }
 
@@ -50,4 +52,10 @@
   color: #ffffff;
 }
 
-.muted { color: rgba(255, 255, 255, 0.5); }
+/* ── Status colour tokens ── */
+.green  { color: #44ff88; }
+.red    { color: #ff4444; }
+.cyan   { color: #00d4ff; }
+.amber  { color: #ffaa00; }
+.white  { color: #ffffff; }
+.muted  { color: rgba(255, 255, 255, 0.45); }
