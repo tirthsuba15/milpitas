@@ -4,6 +4,7 @@ import { spreadHazards } from './hazards'
 import { decayPersonUrgency, updateFogOfWar } from './entities'
 import { updateCarbonLedger, addSalvage, deductMaterial } from './ledger'
 import { updateScore } from './scoring'
+import { LOT_DEFS, rasterizeRoads } from './cityLayout'
 import { bus } from '@/events/bus'
 
 const GRID_W = 50
@@ -23,16 +24,19 @@ export function createInitialWorld(): WorldState {
     gridWidth: GRID_W,
     gridHeight: GRID_H,
     cellSizeM: CELL_SIZE_M,
-    // 2×3 neighbourhood grid — row 1 at z=58, row 2 at z=90; columns at x=145/165/185
-    // roads run between rows at z=76 and along the block edge at x=133
-    buildSites: [
-      { id: 'site-1', position: { x: 145, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-2', position: { x: 165, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-3', position: { x: 185, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-4', position: { x: 145, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-5', position: { x: 165, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-6', position: { x: 185, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-    ],
+    // Urban lots along the streets — varied footprints + orientation (see cityLayout.ts)
+    buildSites: LOT_DEFS.map(lot => ({
+      id: lot.id,
+      position: lot.position,
+      footprint: lot.footprint,
+      zoneType: lot.zoneType,
+      modulesRequired: 4,
+      modulesComplete: 0,
+      status: 'planned' as const,
+      assignedFamilyId: null,
+      materialChoice: 'imported_timber' as const,
+      kgCo2eSpent: 0,
+    })),
     inventory: {
       importedTimber: 8000,
       importedPanels: 2000,
@@ -298,7 +302,7 @@ export class World {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function buildGrid(): GridCell[][] {
-  return Array.from({ length: GRID_H }, (_, y) =>
+  const grid = Array.from({ length: GRID_H }, (_, y) =>
     Array.from({ length: GRID_W }, (_, x) => {
       const isFireZone = x < 18 && y < 20
       const isFloodZone = x > 38
@@ -314,6 +318,8 @@ function buildGrid(): GridCell[][] {
       } satisfies GridCell
     })
   )
+  rasterizeRoads(grid)   // paint streets onto clear cells → units prefer roads
+  return grid
 }
 
 function buildInitialEntities(): Entity[] {

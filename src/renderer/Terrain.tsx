@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useTexture } from '@react-three/drei'
+import { ROAD_SEGMENTS } from '@/simulation/cityLayout'
 
 const WORLD = 250  // metres — 50 cells × 5 m/cell
 
@@ -42,18 +43,9 @@ function GroundPlane() {
 // Simple asphalt grid through the rebuild zone (housing area centred ~x155–190, z55–100)
 
 function Roads() {
-  const segs = useMemo<{ x: number; z: number; w: number; l: number; ry?: number }[]>(() => [
-    // N-S main street at x=133
-    { x: 133, z: 78, w: 7, l: 100 },
-    // E-W cross-streets
-    { x: 163, z: 47, w: 85, l: 7 },
-    { x: 163, z: 76, w: 85, l: 7 },
-    { x: 163, z: 105, w: 85, l: 7 },
-  ], [])
-
   return (
     <group>
-      {segs.map((s, i) => (
+      {ROAD_SEGMENTS.map((s, i) => (
         <mesh key={i} position={[s.x, 0.01, s.z]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[s.w, s.l]} />
           <meshStandardMaterial color="#222226" roughness={0.97} metalness={0} />

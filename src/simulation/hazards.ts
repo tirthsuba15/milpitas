@@ -63,7 +63,7 @@ export function spreadHazards(state: WorldState, deltaS: number): GridCell[][] {
 function computeTraversalCost(cell: GridCell): number {
   if (cell.fireIntensity > 0.5) return 10
   if (cell.floodDepth > 1.5)   return 10
-  return 1
+  return (cell.terrain === 'asphalt' ? 0.8 : 1)   // roads stay cheap through reactive recompute
     + (cell.terrain === 'rubble' ? 1 : 0)
     + (cell.terrain === 'mud'    ? 0.5 : 0)
     + cell.fireIntensity * 6
