@@ -3,22 +3,13 @@ import {
   Bloom,
   Vignette,
   ToneMapping,
-  SSAO,
 } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 
 export function PostProcessing() {
   return (
     <EffectComposer multisampling={4}>
-      {/* SSAO first — grounds objects in the scene */}
-      <SSAO
-        radius={0.08}
-        intensity={14}
-        luminanceInfluence={0.6}
-        color="black"
-      />
-
-      {/* Bloom — makes fire, markers, and solar glass glow */}
+      {/* Bloom — makes fire particles, markers, and solar glass glow */}
       <Bloom
         luminanceThreshold={0.55}
         luminanceSmoothing={0.2}
