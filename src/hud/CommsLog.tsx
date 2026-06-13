@@ -3,12 +3,12 @@ import { useWorldStore } from '@/store/worldStore'
 import type { AgentType } from '@/types'
 import styles from './hud.module.css'
 
-const AGENT_COLORS: Record<AgentType, string> = {
-  commander: '#00d4ff',
-  rescue:    '#ff8844',
-  salvage:   '#aadd44',
-  rebuild:   '#44ddff',
-  logistics: '#cc88ff',
+const AGENT_CLASS: Record<AgentType, string> = {
+  commander: 'cmd',
+  rescue:    'rsc',
+  salvage:   'slv',
+  rebuild:   'rbd',
+  logistics: 'log',
 }
 
 const AGENT_LABELS: Record<AgentType, string> = {
@@ -30,18 +30,22 @@ export function CommsLog() {
   }, [entries.length])
 
   return (
-    <div className={styles.glass} style={{ width: 420, maxHeight: 200, overflowY: 'auto', pointerEvents: 'auto' }}>
-      <div className={styles.label} style={{ marginBottom: 6 }}>Mission Comms</div>
-      {entries.length === 0 && <div className={styles.muted} style={{ fontSize: 12 }}>Awaiting deployment…</div>}
-      {entries.map((entry, i) => (
-        <div key={i} style={{ fontSize: 12, marginBottom: 4, display: 'flex', gap: 6 }}>
-          <span style={{ color: AGENT_COLORS[entry.agent], flexShrink: 0, fontWeight: 700 }}>
-            [{AGENT_LABELS[entry.agent]}]
-          </span>
-          <span style={{ color: '#ccc' }}>{entry.message}</span>
-        </div>
-      ))}
-      <div ref={bottomRef} />
+    <div className={styles.commsBody}>
+      <div className={styles.logList}>
+        {entries.length === 0 ? (
+          <div className={styles.empty}>— AWAITING DEPLOYMENT —</div>
+        ) : (
+          entries.map((entry, i) => (
+            <div key={i} className={styles.line}>
+              <span className={`${styles.tag} ${styles[AGENT_CLASS[entry.agent]]}`}>
+                [{AGENT_LABELS[entry.agent]}]
+              </span>
+              <span className={styles.msg}>{entry.message}</span>
+            </div>
+          ))
+        )}
+        <div ref={bottomRef} />
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { Sky, OrbitControls, Stats } from '@react-three/drei'
+import { Environment, OrbitControls } from '@react-three/drei'
 import { Suspense } from 'react'
 import { Terrain } from './Terrain'
 import { RobotFleet } from './RobotFleet'
@@ -18,18 +18,13 @@ export function Scene() {
       dpr={[1, 1.5]}
     >
       <Suspense fallback={null}>
-        {/* Sky with visible sun */}
-        <Sky
-          sunPosition={[100, 80, -80]}
-          turbidity={6}
-          rayleigh={1.5}
-          mieCoefficient={0.005}
-          mieDirectionalG={0.8}
-        />
+        {/* Environment: HDRI from public/hdri/ — drives image-based lighting
+            AND renders as the sky. This is the photoreal disaster-zone mood. */}
+        <Environment files="/hdri/kloofendal_overcast.hdr" background backgroundBlurriness={0.04} />
 
-        {/* Sun-matched directional light */}
+        {/* Single directional sun for crisp shadows on top of the HDRI fill */}
         <directionalLight
-          position={[100, 80, -80]}
+          position={[80, 120, -60]}
           intensity={1.4}
           castShadow
           shadow-mapSize={[2048, 2048]}
@@ -40,9 +35,7 @@ export function Scene() {
           shadow-camera-top={200}
           shadow-camera-bottom={-200}
         />
-        {/* Sky-bounce fill light — blue from above, green from ground */}
-        <hemisphereLight args={['#87ceeb', '#4a7c3f', 0.5]} />
-        <ambientLight intensity={0.15} />
+        <ambientLight intensity={0.2} />
 
         <Terrain />
         <Hazards />
@@ -64,8 +57,6 @@ export function Scene() {
           zoomSpeed={1.2}
           panSpeed={1.0}
         />
-
-        {import.meta.env.DEV && <Stats />}
       </Suspense>
     </Canvas>
   )

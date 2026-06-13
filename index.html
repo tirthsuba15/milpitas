@@ -5,12 +5,33 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Haven — AI Disaster Relief Commander</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500&display=swap" rel="stylesheet">
     <style>
+      /* ── FIELD COMMAND design tokens — black / monochrome theme ── */
+      :root {
+        --bg:#040404; --panel:#0C0C0C; --panel-2:#161616; --panel-3:#232323;
+        --line:rgba(255,255,255,0.10); --line-strong:rgba(255,255,255,0.22);
+        --ink:#ECECEC; --ink-dim:#9A9A9A; --ink-faint:#5E5E5E;
+        --sig:#D6D6D6; --sig-deep:#6E6E6E; --sig-glow:rgba(255,255,255,0.16);
+        --good:#4FD1A0; --warn:#E0904A; --crit:#F2606A;
+        --ink-on-sig:#0A0A0A;
+        --cmd:#D6D6D6; --rsc:#E8896B; --slv:#9BC267; --rbd:#AEB2B8; --log:#8A8A8A;
+        --cond:'Saira Condensed','Helvetica Neue',sans-serif;
+        --mono:'DM Mono',ui-monospace,monospace;
+        --sans:'Saira',sans-serif;
+      }
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
       html, body, #root {
         width: 100%; height: 100%; overflow: hidden;
-        background: #000;
-        font-family: 'Inter', 'Roboto Mono', monospace;
+        background: var(--bg);
+        font-family: var(--mono);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
       }
     </style>
   </head>

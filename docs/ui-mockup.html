@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Haven — FIELD COMMAND mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0C0A08; --panel:#15110D; --panel-2:#1E1813; --panel-3:#2A2118;
+  --line:rgba(244,196,128,0.14); --line-strong:rgba(244,196,128,0.30);
+  --ink:#F2EBDD; --ink-dim:#A89B86; --ink-faint:#6B6253;
+  --sig:#FFB54A; --sig-deep:#E08A1E; --sig-glow:rgba(255,181,74,0.22);
+  --good:#54D6A0; --warn:#FFC247; --crit:#FF5A4D;
+  --cmd:#FFB54A; --rsc:#FF8A5B; --slv:#C7D45A; --rbd:#6FC9D6; --log:#B9A0E0;
+  --cond:'IBM Plex Sans Condensed'; --mono:'IBM Plex Mono'; --sans:'IBM Plex Sans';
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:var(--mono)}
+.screen{position:relative;width:100vw;height:100vh;overflow:hidden}
+
+/* ── Faux 3D disaster-zone background (stand-in for the photoreal scene) ── */
+.scene{position:absolute;inset:0;
+  background:
+    radial-gradient(120% 80% at 28% 18%, rgba(255,120,40,0.20), transparent 42%),
+    radial-gradient(90% 70% at 22% 30%, rgba(255,60,30,0.16), transparent 38%),
+    radial-gradient(140% 120% at 78% 90%, rgba(70,90,120,0.18), transparent 55%),
+    linear-gradient(180deg,#1a140d 0%,#0d0a07 60%,#080605 100%);
+}
+.scene::after{content:'';position:absolute;inset:0;opacity:.5;
+  background-image:linear-gradient(rgba(120,90,50,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(120,90,50,.05) 1px,transparent 1px);
+  background-size:46px 46px;
+  transform:perspective(600px) rotateX(62deg) scale(2.2) translateY(28%);transform-origin:center 70%;}
+.smoke{position:absolute;width:520px;height:520px;border-radius:50%;filter:blur(70px);mix-blend-mode:screen}
+.smoke.a{left:8%;top:6%;background:radial-gradient(circle,rgba(255,140,50,.22),transparent 65%)}
+.smoke.b{left:60%;top:55%;background:radial-gradient(circle,rgba(60,80,110,.22),transparent 65%)}
+.grain{position:absolute;inset:0;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+/* ── HUD overlay grid ── */
+.overlay{position:absolute;inset:0;pointer-events:none;display:grid;
+  grid-template-columns:34px 1fr 268px;
+  grid-template-rows:54px auto 1fr auto;
+  grid-template-areas:
+    "rail rail rail"
+    "spine metrics ledger"
+    "spine . ledger"
+    "spine bottom ledger";
+  gap:14px;padding:0 14px 14px;}
+
+/* panel material + corner registration ticks */
+.panel{position:relative;background:color-mix(in srgb,var(--panel) 93%,transparent);
+  backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:3px;
+  box-shadow:0 2px 12px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,220,170,.04);}
+.panel::before,.panel::after{content:'';position:absolute;width:9px;height:9px;border:1.5px solid var(--sig);opacity:.7}
+.panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+.panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+.edge{position:absolute;top:-1px;left:8px;right:8px;height:2px;background:var(--sig);opacity:.8}
+.edge.good{background:var(--good)} .edge.crit{background:var(--crit)} .edge.warn{background:var(--warn)}
+.lbl{font-family:var(--cond);font-weight:600;font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-faint)}
+.cap{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--ink-faint)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+
+/* ── RAIL ── */
+.rail{grid-area:rail;align-self:start;margin-top:14px;display:flex;align-items:center;
+  height:54px;padding:0 18px;}
+.rail::after{opacity:0}
+.rail .edge{left:0;right:0}
+.brand{display:flex;align-items:center;gap:14px;flex:1}
+.mark{font-family:var(--cond);font-weight:700;font-size:22px;letter-spacing:.22em;color:var(--ink);
+  display:flex;align-items:center;gap:8px}
+.mark .bar{width:5px;height:22px;background:var(--sig);box-shadow:0 0 10px var(--sig-glow)}
+.msn{font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:.08em}
+.rec{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--crit);letter-spacing:.12em}
+.rec .dot{width:7px;height:7px;border-radius:50%;background:var(--crit);box-shadow:0 0 8px var(--crit);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.rail-center{display:flex;align-items:center;gap:16px;flex:1;justify-content:center}
+.clock{font-family:var(--mono);font-weight:600;font-size:30px;color:var(--ink);letter-spacing:.04em;font-variant-numeric:tabular-nums}
+.phase{font-family:var(--cond);font-weight:600;font-size:12px;letter-spacing:.18em;color:var(--sig);
+  border:1px solid var(--sig);border-radius:2px;padding:3px 10px}
+.fleet{flex:1;display:flex;align-items:center;gap:18px;justify-content:flex-end}
+.fleet .grp{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.fleet .v{font-family:var(--mono);font-size:15px;font-weight:600}
+.fleet .v.act{color:var(--good)} .fleet .v.idle{color:var(--ink-dim)} .fleet .v.fail{color:var(--crit)}
+.cond{font-family:var(--cond);font-weight:700;font-size:13px;letter-spacing:.12em;color:var(--warn);
+  border-left:1px solid var(--line);padding-left:16px}
+
+/* ── SPINE ── */
+.spine{grid-area:spine;display:flex;flex-direction:column;justify-content:space-between;
+  align-items:center;padding:4px 0;writing-mode:vertical-rl}
+.spine .tk{font-family:var(--mono);font-size:8px;color:var(--ink-faint);letter-spacing:.3em}
+.spine .ruler{flex:1;width:1px;background:repeating-linear-gradient(var(--line) 0 6px,transparent 6px 14px);margin:12px 0}
+
+/* ── METRICS ── */
+.metrics{grid-area:metrics;justify-self:center;align-self:start;margin-top:2px;
+  display:flex;align-items:stretch;padding:10px 4px}
+.metrics .hd{position:absolute;top:-9px;left:14px;background:var(--bg);padding:0 6px}
+.stat{display:flex;flex-direction:column;justify-content:center;gap:5px;padding:4px 22px;
+  border-right:1px solid var(--line);min-width:96px}
+.stat:last-child{border-right:none}
+.stat .v{font-family:var(--mono);font-weight:600;font-size:24px;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
+.stat.hero .v{font-size:40px}
+.stat .v.good{color:var(--good)} .stat .v.sig{color:var(--sig)}
+.stat .v small{font-size:.5em;color:var(--ink-faint);font-weight:500}
+.pulse{animation:pulse 1.2s ease-out}
+@keyframes pulse{0%{text-shadow:0 0 0 transparent;transform:scale(1)}30%{text-shadow:0 0 18px var(--good);transform:scale(1.06)}100%{text-shadow:0 0 0 transparent;transform:scale(1)}}
+
+/* ── LEDGER (right gauge) ── */
+.ledger{grid-area:ledger;display:flex;flex-direction:column;gap:14px;padding:14px 16px 16px}
+.ledger .hd{display:flex;justify-content:space-between;align-items:baseline}
+.gauge{flex:1;display:flex;gap:12px;min-height:200px}
+.well{position:relative;flex:1;background:var(--panel-3);border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.fill{position:absolute;left:0;right:0;bottom:0;height:81%;
+  background:linear-gradient(to top,var(--sig-deep),var(--good));transition:height .6s ease;
+  box-shadow:0 0 24px rgba(84,214,160,.28)}
+.fill::before{content:'';position:absolute;inset:0;opacity:.25;
+  background:repeating-linear-gradient(transparent 0 8px,rgba(0,0,0,.3) 8px 9px)}
+.gpct{position:absolute;left:0;right:0;top:10px;text-align:center;font-family:var(--mono);
+  font-size:26px;font-weight:600;color:var(--ink);text-shadow:0 1px 4px #000}
+.gsub{position:absolute;left:0;right:0;top:42px;text-align:center}
+.ticks{display:flex;flex-direction:column;justify-content:space-between;padding:2px 0;width:30px}
+.ticks span{font-family:var(--mono);font-size:8px;color:var(--ink-faint);text-align:right;position:relative}
+.ticks span::after{content:'';position:absolute;right:-12px;top:50%;width:8px;height:1px;background:var(--line-strong)}
+.avoid{display:flex;justify-content:space-between;align-items:baseline;padding-top:2px}
+.avoid .v{font-family:var(--mono);font-size:18px;font-weight:600;color:var(--good)}
+.hr{height:1px;background:var(--line);margin:2px 0}
+.inv{display:flex;flex-direction:column;gap:7px}
+.inv .row{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px}
+.inv .row .k{color:var(--ink-faint);font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-family:var(--cond)}
+.inv .row .val{font-weight:600}
+.shortage{display:flex;align-items:center;gap:8px;background:rgba(255,90,77,.12);
+  border:1px solid var(--crit);border-radius:2px;padding:8px 10px;
+  font-family:var(--cond);font-weight:700;font-size:12px;letter-spacing:.1em;color:var(--crit)}
+.shortage .blip{width:8px;height:8px;background:var(--crit);border-radius:50%;animation:blink 1s infinite}
+
+/* ── BOTTOM (comms + console) ── */
+.bottom{grid-area:bottom;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:end}
+.comms{padding:12px 14px 10px;max-height:208px;display:flex;flex-direction:column;pointer-events:auto}
+.comms .hd{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.log{overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding-right:6px}
+.line{display:flex;gap:8px;font-family:var(--mono);font-size:12px;line-height:1.35;animation:fade .4s ease}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.tag{flex-shrink:0;font-weight:600;letter-spacing:.04em}
+.tag.cmd{color:var(--cmd)} .tag.rsc{color:var(--rsc)} .tag.slv{color:var(--slv)} .tag.rbd{color:var(--rbd)} .tag.log{color:var(--log)} .tag.hum{color:var(--ink)}
+.msg{color:var(--ink-dim)}
+.console{padding:12px 14px;display:flex;flex-direction:column;gap:10px;pointer-events:auto}
+.console .hd{display:flex;justify-content:space-between;align-items:baseline}
+.controls{display:flex;gap:8px;align-items:center}
+.sw{font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:.1em;cursor:pointer;
+  background:transparent;border:1px solid var(--line-strong);color:var(--ink-dim);border-radius:2px;
+  padding:8px 12px;white-space:nowrap;transition:all .15s}
+.sw:hover{border-color:var(--ink-dim);color:var(--ink)}
+.sw.arm{border-color:var(--crit);color:var(--crit);display:flex;align-items:center;gap:7px}
+.sw.arm .dot{width:7px;height:7px;border-radius:50%;background:var(--crit);box-shadow:0 0 8px var(--crit)}
+.sw.warn{border-color:rgba(255,194,71,.5);color:var(--warn)}
+.sw.crit{border-color:rgba(255,90,77,.5);color:var(--crit)}
+.sw.sig{border-color:rgba(255,181,74,.5);color:var(--sig)}
+.cmdrow{display:flex;gap:8px}
+.cmdin{flex:1;background:var(--panel-3);border:1px solid var(--line);border-radius:2px;
+  padding:9px 12px;color:var(--ink);font-family:var(--mono);font-size:12px;outline:none}
+.cmdin::placeholder{color:var(--ink-faint)}
+.transmit{font-family:var(--cond);font-weight:700;font-size:11px;letter-spacing:.12em;cursor:pointer;
+  background:var(--sig);color:#1a1206;border:none;border-radius:2px;padding:0 16px}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="scene"><div class="smoke a"></div><div class="smoke b"></div></div>
+  <div class="grain"></div>
+
+  <div class="overlay">
+
+    <!-- RAIL -->
+    <div class="panel rail">
+      <div class="edge"></div>
+      <div class="brand">
+        <div class="mark"><span class="bar"></span>HAVEN</div>
+        <div class="rec"><span class="dot"></span>REC</div>
+        <div class="msn">MSN-7F · NORTH SECTOR · GRID 250×250m</div>
+      </div>
+      <div class="rail-center">
+        <div class="clock">02:14</div>
+        <div class="phase">‹ ACTIVE ›</div>
+      </div>
+      <div class="fleet">
+        <div class="grp"><span class="v act">6 ▲</span><span class="cap">ACTIVE</span></div>
+        <div class="grp"><span class="v idle">2 ▫</span><span class="cap">IDLE</span></div>
+        <div class="grp"><span class="v fail">0 ✕</span><span class="cap">FAILED</span></div>
+        <div class="cond">COND&nbsp;2</div>
+      </div>
+    </div>
+
+    <!-- SPINE -->
+    <div class="spine">
+      <span class="tk">N 37.43</span>
+      <div class="ruler"></div>
+      <span class="tk">CH·01 SECURE</span>
+    </div>
+
+    <!-- METRICS -->
+    <div class="panel metrics">
+      <div class="edge good"></div>
+      <div class="lbl hd">Mission Status</div>
+      <div class="stat hero"><span class="lbl">Families Housed</span><span class="v">3<small>/4</small></span></div>
+      <div class="stat"><span class="lbl">Rescued</span><span class="v">2<small>/2</small></span></div>
+      <div class="stat"><span class="lbl">Carbon Avoided</span><span class="v good pulse">+81<small>%</small></span></div>
+      <div class="stat"><span class="lbl">Waste Diverted</span><span class="v good">4.3<small>t</small></span></div>
+      <div class="stat"><span class="lbl">Vuln. First</span><span class="v sig">100<small>%</small></span></div>
+    </div>
+
+    <!-- LEDGER -->
+    <div class="panel ledger">
+      <div class="edge good"></div>
+      <div class="hd"><span class="lbl">Carbon Ledger</span><span class="cap">vs 45.0t BASELINE</span></div>
+      <div class="gauge">
+        <div class="well">
+          <div class="fill"></div>
+          <div class="gpct">81%</div>
+          <div class="gsub cap">AVOIDED</div>
+        </div>
+        <div class="ticks"><span>100</span><span>75</span><span>50</span><span>25</span><span>0</span></div>
+      </div>
+      <div class="avoid"><span class="lbl">CO₂e Avoided</span><span class="v">36.5t</span></div>
+      <div class="hr"></div>
+      <div class="inv">
+        <div class="row"><span class="k">Imported Timber</span><span class="val" style="color:var(--crit)">0.0 t</span></div>
+        <div class="row"><span class="k">Salvaged Timber</span><span class="val" style="color:var(--good)">2.4 t</span></div>
+        <div class="row"><span class="k">Recycled Panels</span><span class="val" style="color:var(--sig)">9.6 t</span></div>
+      </div>
+      <div class="shortage"><span class="blip"></span>TIMBER SHORTAGE · RECYCLED ACTIVE</div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="bottom">
+      <div class="panel comms">
+        <div class="edge"></div>
+        <div class="hd"><span class="lbl">Mission Comms</span><span class="cap">CH·01 · SECURE</span></div>
+        <div class="log">
+          <div class="line"><span class="tag cmd">[CMD]</span><span class="msg">Assigning rescue unit to NW fire zone, 2 survivors located.</span></div>
+          <div class="line"><span class="tag rsc">[RSC]</span><span class="msg">Medic dispatched to surv-1 — ETA 18s, high vulnerability.</span></div>
+          <div class="line"><span class="tag slv">[SLV]</span><span class="msg">Sorting recovered timber, 1.2t salvaged from sector 4.</span></div>
+          <div class="line"><span class="tag log">[LOG]</span><span class="msg">WARNING: imported timber exhausted. Switching to recycled panels.</span></div>
+          <div class="line"><span class="tag rbd">[RBD]</span><span class="msg">Site-2 material switched → recycled. Carbon −36.5t vs baseline.</span></div>
+          <div class="line"><span class="tag hum">[HUMAN]</span><span class="msg">"house the families with kids in the north first"</span></div>
+          <div class="line"><span class="tag cmd">[CMD]</span><span class="msg">Acknowledged. Reprioritising fam-1, fam-2 to active builds.</span></div>
+        </div>
+      </div>
+
+      <div class="panel console">
+        <div class="edge"></div>
+        <div class="hd"><span class="lbl">Operator Console</span><span class="cap">OP · READY</span></div>
+        <div class="controls">
+          <button class="sw arm"><span class="dot"></span>STOP</button>
+          <button class="sw warn">TIMBER</button>
+          <button class="sw crit">2ND STORM</button>
+          <button class="sw sig">+FAM</button>
+        </div>
+        <div class="cmdrow">
+          <input class="cmdin" placeholder="Issue command to commander…" value="">
+          <button class="transmit">TRANSMIT ▸</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

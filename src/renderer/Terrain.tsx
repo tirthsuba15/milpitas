@@ -1,6 +1,6 @@
 import { useRef, useEffect } from 'react'
 import * as THREE from 'three'
-import { Plane } from '@react-three/drei'
+import { Plane, useTexture } from '@react-three/drei'
 
 const GRID_SIZE_M = 250
 
@@ -14,6 +14,18 @@ export function Terrain() {
 }
 
 function GroundPlane() {
+  // Real aerial PBR ground from public/textures/ (albedo + roughness present).
+  const [albedo, roughness] = useTexture([
+    '/textures/ground_albedo.jpg',
+    '/textures/ground_roughness.jpg',
+  ])
+
+  for (const t of [albedo, roughness]) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    t.repeat.set(8, 8)
+  }
+  albedo.colorSpace = THREE.SRGBColorSpace
+
   return (
     <Plane
       args={[GRID_SIZE_M, GRID_SIZE_M, 64, 64]}
@@ -22,8 +34,11 @@ function GroundPlane() {
       receiveShadow
     >
       <meshStandardMaterial
-        color="#4a7c3f"
-        roughness={0.9}
+        map={albedo}
+        roughnessMap={roughness}
+        // Warm, darkened tint pushes the ground toward a scorched dusk read
+        color="#9b8d76"
+        roughness={1.0}
         metalness={0.0}
       />
     </Plane>
@@ -32,6 +47,9 @@ function GroundPlane() {
 
 function RubbleMounds() {
   const meshRef = useRef<THREE.InstancedMesh>(null)
+  const rubble = useTexture('/textures/rubble_albedo.jpg')
+  rubble.wrapS = rubble.wrapT = THREE.RepeatWrapping
+  rubble.colorSpace = THREE.SRGBColorSpace
 
   useEffect(() => {
     const mesh = meshRef.current
@@ -56,7 +74,7 @@ function RubbleMounds() {
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, 120]} castShadow receiveShadow>
       <boxGeometry args={[3, 1, 2]} />
-      <meshStandardMaterial color="#7a6050" roughness={1} metalness={0.05} />
+      <meshStandardMaterial map={rubble} color="#8a7565" roughness={1} metalness={0.05} />
     </instancedMesh>
   )
 }
