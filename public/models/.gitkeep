@@ -1,0 +1,4 @@
+# Optional: drop GLB/GLTF models here for robot fleet
+# Free source: Quaternius "Robots" pack (CC0) — https://quaternius.com
+# Files: drone.glb, ground_unit.glb, hauler.glb, builder.glb
+# If not available, the RobotFleet.tsx capsule placeholders will be used.

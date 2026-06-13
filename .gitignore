@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+*.local
+.DS_Store
+public/hdri/*.hdr
+public/models/*.glb
+public/models/*.gltf

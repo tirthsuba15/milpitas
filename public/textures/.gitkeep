@@ -1,0 +1,8 @@
+# Download CC0 PBR texture sets from polyhaven.com
+# Required sets (1K resolution):
+#   ground_albedo.jpg, ground_normal.jpg, ground_roughness.jpg, ground_ao.jpg
+#   rubble_albedo.jpg, rubble_normal.jpg, rubble_roughness.jpg
+#
+# Recommended: "Aerial Rocks" or "Gravel Stones" for rubble
+#              "Mud Cracked" for flood areas
+#              "Asphalt" for road patches

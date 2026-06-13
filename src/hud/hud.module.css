@@ -1,0 +1,54 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-areas:
+    "topleft topcenter rightpanel"
+    ".       .         rightpanel"
+    "bottomcenter bottomcenter rightpanel"
+    "bottomright bottomright rightpanel";
+  grid-template-columns: 220px 1fr 240px;
+  grid-template-rows: auto 1fr auto auto;
+  gap: 12px;
+  padding: 16px;
+}
+
+.glass {
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: #e0e0e0;
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+}
+
+.topLeft     { grid-area: topleft; }
+.topCenter   { grid-area: topcenter; display: flex; justify-content: center; }
+.rightPanel  { grid-area: rightpanel; }
+.bottomRight { grid-area: bottomright; }
+.bottomCenter{ grid-area: bottomcenter; display: flex; justify-content: center; }
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #888;
+  margin-bottom: 2px;
+}
+
+.bigNumber {
+  font-size: 48px;
+  font-weight: 700;
+  color: #00d4ff;
+  line-height: 1;
+  text-shadow: 0 0 20px rgba(0,212,255,0.5);
+}
+
+.cyan   { color: #00d4ff; }
+.amber  { color: #ffaa00; }
+.green  { color: #44ff88; }
+.red    { color: #ff4444; }
+.white  { color: #ffffff; }
+.muted  { color: #666; }
