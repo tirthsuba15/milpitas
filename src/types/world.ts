@@ -102,6 +102,9 @@ export interface BuildSite {
   assignedFamilyId: string | null
   materialChoice: MaterialChoice
   kgCo2eSpent: number
+  // Optional urban-layout metadata (Phase B). Absent = renders as a default 8×8 axis-aligned lot.
+  footprint?: { width: number; depth: number; rotationY: number }
+  zoneType?: string
 }
 
 // ─── Ledgers ─────────────────────────────────────────────────────────────────
