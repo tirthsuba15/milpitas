@@ -2,7 +2,7 @@ import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEnti
 import { findPath } from './pathfinding'
 import { spreadHazards } from './hazards'
 import { decayPersonUrgency, updateFogOfWar } from './entities'
-import { updateCarbonLedger, addSalvage } from './ledger'
+import { updateCarbonLedger, addSalvage, deductMaterial } from './ledger'
 import { updateScore } from './scoring'
 import { bus } from '@/events/bus'
 
@@ -69,6 +69,7 @@ export class World {
     this.state = updateFogOfWar(this.state)
     this._updateHousingAssignments()   // after discovery is set in updateFogOfWar
     this.state = updateScore(this.state)
+    this._updatePhase()                // deploying → active → complete (gates debrief/counterfactual)
     bus.emit('world:tick', this.state)
   }
 
@@ -208,6 +209,9 @@ export class World {
             s.id === site.id ? { ...s, modulesComplete, status: complete ? 'complete' as const : 'active' as const } : s
           ),
         }
+        // Deplete one module's worth of the site's material so stock actually runs down —
+        // this is what makes the timber shortage reachable organically (not just via the chaos button).
+        this.state = deductMaterial(this.state, site.materialChoice, 1)
         if (complete) {
           if (site.assignedFamilyId) {
             this.state = {
@@ -255,6 +259,19 @@ export class World {
       return { ...site, assignedFamilyId: fam.id, status: 'active' as const }
     })
     if (famIdx > 0) this.state = { ...this.state, buildSites }
+  }
+
+  // Mission state machine: deploying → active (once running) → complete (housing goal met or time up).
+  // Only MissionClock reads phase today; setting 'complete' is what will gate the debrief + counterfactual.
+  private _updatePhase(): void {
+    const { phase, score, elapsedSeconds } = this.state
+    if (phase === 'complete') return
+    const housingGoalMet = score.familiesTotal > 0 && score.familiesHoused >= score.familiesTotal * 0.8
+    if (housingGoalMet || elapsedSeconds > 300) {
+      this.state = { ...this.state, phase: 'complete' }
+    } else if (phase === 'deploying') {
+      this.state = { ...this.state, phase: 'active' }
+    }
   }
 
   private _setUnitIdle(id: string): void {
