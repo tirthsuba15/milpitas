@@ -5,11 +5,11 @@ import { useWorldStore } from '@/store/worldStore'
 import type { RobotEntity, RobotStatus } from '@/types'
 
 const STATUS_COLORS: Record<RobotStatus, string> = {
-  idle:    '#aaaaaa',
-  moving:  '#ffffff',
-  working: '#ccffcc',
-  blocked: '#ffddaa',
-  failed:  '#ffaaaa',
+  idle:    '#4488ff',
+  moving:  '#44aaff',
+  working: '#44ff88',
+  blocked: '#ffaa00',
+  failed:  '#ff4444',
 }
 
 const DRONE_POSITIONS: [number, number, number][] = [

@@ -1,7 +1,14 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useWorldStore } from '@/store/worldStore'
-import type { BuildSite } from '@/types'
+import type { BuildSite, MaterialChoice } from '@/types'
+
+// Tint walls by material so the timber→recycled switch is visible in the world (P1-1)
+const MATERIAL_WALL: Record<MaterialChoice, { incomplete: string; complete: string }> = {
+  imported_timber: { incomplete: '#b8a88a', complete: '#c8b89a' },
+  salvaged_timber:  { incomplete: '#8c9a76', complete: '#9caa86' },
+  recycled_panels:  { incomplete: '#7f938b', complete: '#8fa39b' },
+}
 
 export function Buildings() {
   const world = useWorldStore(s => s.world)
@@ -22,7 +29,8 @@ function House({ site }: { site: BuildSite }) {
   const isComplete = site.status === 'complete'
   const isActive = site.status === 'active'
 
-  const wallColor = isComplete ? '#f5f0e8' : '#d6cfc4'
+  const matColors = MATERIAL_WALL[site.materialChoice] ?? MATERIAL_WALL.imported_timber
+  const wallColor = isComplete ? matColors.complete : matColors.incomplete
   const roofColor = isComplete ? '#8b4513' : '#9e7b5a'
 
   return (
