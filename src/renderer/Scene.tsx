@@ -8,6 +8,8 @@ import { RobotFleet } from './RobotFleet'
 import { Markers } from './Markers'
 import { Hazards } from './Hazards'
 import { Buildings } from './Buildings'
+import { SuburbStructures } from './SuburbStructures'
+import { SuburbProps } from './SuburbProps'
 import { FogOfWar } from './FogOfWar'
 import { PostProcessing } from './PostProcessing'
 
@@ -29,6 +31,17 @@ export function Scene() {
 
         {/* Procedural trees / rocks / bushes / grass tufts, clustered, instanced */}
         <Ecosystem />
+
+        {/* Suburban set-dressing rendered from the seeded layout DATA: real GLB
+            houses/civic blocks + street props (cars, lights, fences, mailboxes,
+            benches). Each gets its own Suspense so a slow/failed model load can
+            never block the rest of the scene. Both no-op until world is loaded. */}
+        <Suspense fallback={null}>
+          <SuburbStructures />
+        </Suspense>
+        <Suspense fallback={null}>
+          <SuburbProps />
+        </Suspense>
 
         <Hazards />
         <FogOfWar />

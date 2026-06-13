@@ -1,26 +1,22 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { CORE_MIN_X, CORE_MAX_X, CENTER_X, CENTER_Z } from '@/simulation/grid'
+import { GRID_W, GRID_H, CELL_SIZE_M, CENTER_X, CENTER_Z } from '@/simulation/grid'
+import { useWorldStore } from '@/store/worldStore'
+import type { ZoneType } from '@/types'
 
 /**
- * Procedural low-poly ecosystem scattered across the world floor.
+ * Procedural low-poly ecosystem scattered across the 500 m sim map, ZONE-AWARE.
  *
- * Everything is rendered with <instancedMesh> for performance (a handful of
- * draw calls for thousands of objects). Placement is seeded + deterministic so
- * the world looks the same every run, and density is shaped by region:
- *   - the sim CORE (0–250 in x/z) is kept clear — it's a disaster/work zone
- *   - density ramps UP toward the surround, clustered in groves, not uniform
+ * Placement reads world.grid[y][x].zone and only drops nature on 'nature' and
+ * 'yard' cells — never on roads, sidewalks, house_lots, civic blocks or the
+ * disaster_core. Yards get sparse ornamental greenery; open nature cells get
+ * lush, dense grass + groves of trees + bushes so the WHOLE map reads as a
+ * living, used suburb-with-greenery rather than an empty field.
+ *
+ * Everything is one <instancedMesh> per object layer (a few draw calls for
+ * thousands of objects). Counts are capped and grass is LOD-thinned with
+ * distance from the map center so the 500 m extent stays performant.
  */
-
-// Keep the disaster core clear of procedural nature; scatter fills the rest of
-// the map. Bounds tracked from grid.ts so they follow the live grid.
-const CORE_MIN = CORE_MIN_X   // 125
-const CORE_MAX = CORE_MAX_X   // 375
-const CORE_CX = CENTER_X      // 250
-const CORE_CZ = CENTER_Z      // 250
-
-// Scatter ring: out to here from the core; beyond this the fog hides the ground.
-const FIELD_HALF = 1100
 
 // ── deterministic RNG (mulberry32) ──────────────────────────────────────────
 function makeRng(seed: number) {
@@ -41,57 +37,81 @@ interface Placement {
   rot: number
 }
 
+const NATURE_ZONES: ReadonlySet<ZoneType> = new Set<ZoneType>(['nature', 'yard'])
+
 /**
- * Produce clustered placements across the field, skipping the sim core (with a
- * soft margin) so the work zone stays clear. Returns a flat list; consumers
- * sub-sample it per object type.
+ * Walk the zone grid and emit placements only on plantable (nature/yard) cells.
+ * `densityPerCell` is the expected count per qualifying cell (can be <1 → sparse
+ * or >1 → multiple tufts). `yardFactor` thins placement on yard cells so they
+ * read as tended (sparser) vs wild nature. `seed` keeps it deterministic.
  */
-function scatter(seed: number, clusters: number, perCluster: number, coreMargin = 18): Placement[] {
+function scatterOnZones(
+  grid: { zone: ZoneType }[][] | null,
+  seed: number,
+  densityPerCell: number,
+  opts: {
+    yardFactor?: number
+    minScale?: number
+    maxScale?: number
+    jitter?: number // 0..0.5 of a cell
+  } = {},
+): Placement[] {
+  if (!grid) return []
+  const { yardFactor = 0.4, minScale = 0.7, maxScale = 1.6, jitter = 0.5 } = opts
   const rng = makeRng(seed)
   const out: Placement[] = []
-  const coreLo = CORE_MIN - coreMargin
-  const coreHi = CORE_MAX + coreMargin
 
-  for (let c = 0; c < clusters; c++) {
-    // Cluster centre, biased toward the surround (avoid the very middle).
-    const cx = CORE_CX + (rng() - 0.5) * 2 * FIELD_HALF
-    const cz = CORE_CZ + (rng() - 0.5) * 2 * FIELD_HALF
-    const spread = 18 + rng() * 60
+  for (let y = 0; y < GRID_H; y++) {
+    const row = grid[y]
+    if (!row) continue
+    for (let x = 0; x < GRID_W; x++) {
+      const cell = row[x]
+      if (!cell || !NATURE_ZONES.has(cell.zone)) continue
+      const isYard = cell.zone === 'yard'
+      // Expected per-cell count, thinned on yards.
+      const expected = densityPerCell * (isYard ? yardFactor : 1)
+      // Whole part = guaranteed, fractional part = probabilistic.
+      let count = Math.floor(expected)
+      if (rng() < expected - count) count += 1
 
-    for (let i = 0; i < perCluster; i++) {
-      const x = cx + (rng() - 0.5) * 2 * spread
-      const z = cz + (rng() - 0.5) * 2 * spread
-
-      // Keep the playable core clear.
-      if (x > coreLo && x < coreHi && z > coreLo && z < coreHi) continue
-      // Stay within the field.
-      if (Math.abs(x - CORE_CX) > FIELD_HALF || Math.abs(z - CORE_CZ) > FIELD_HALF) continue
-
-      out.push({
-        x,
-        z,
-        scale: 0.7 + rng() * 0.9,
-        rot: rng() * Math.PI * 2,
-      })
+      for (let i = 0; i < count; i++) {
+        const wx = (x + 0.5 + (rng() - 0.5) * 2 * jitter) * CELL_SIZE_M
+        const wz = (y + 0.5 + (rng() - 0.5) * 2 * jitter) * CELL_SIZE_M
+        out.push({
+          x: wx,
+          z: wz,
+          scale: minScale + rng() * (maxScale - minScale),
+          rot: rng() * Math.PI * 2,
+        })
+      }
     }
   }
   return out
 }
 
 export function Ecosystem() {
+  const world = useWorldStore((s) => s.world)
+  const grid = world?.grid ?? null
+
   return (
     <group>
-      <Trees />
-      <Rocks />
-      <Bushes />
-      <GrassTufts />
+      <Trees grid={grid} />
+      <Bushes grid={grid} />
+      <Rocks grid={grid} />
+      <GrassTufts grid={grid} />
     </group>
   )
 }
 
-// ── Trees: a trunk cylinder + two stacked cones for a layered low-poly canopy ─
-function Trees() {
-  const placements = useMemo(() => scatter(1337, 70, 9, 22), [])
+type GridProp = { grid: { zone: ZoneType }[][] | null }
+
+// ── Trees: trunk + two stacked cones for a layered low-poly canopy ──────────
+function Trees({ grid }: GridProp) {
+  // ~0.08 trees per plantable cell → groves, capped well under a few hundred.
+  const placements = useMemo(
+    () => scatterOnZones(grid, 1337, 0.08, { yardFactor: 0.5, minScale: 0.9, maxScale: 1.7 }),
+    [grid],
+  )
 
   const trunkMat = useMemo(
     () => new THREE.MeshStandardMaterial({ color: '#6b4a2b', roughness: 1 }),
@@ -119,18 +139,15 @@ function Trees() {
     const lowerArr: THREE.Matrix4[] = []
     const upperArr: THREE.Matrix4[] = []
     for (const p of placements) {
-      const s = p.scale * (1.4 + (p.x % 7) * 0.04)
-      // trunk
+      const s = p.scale * 1.3
       dummy.position.set(p.x, 2 * s, p.z)
       dummy.rotation.set(0, p.rot, 0)
       dummy.scale.setScalar(s)
       dummy.updateMatrix()
       trunkArr.push(dummy.matrix.clone())
-      // lower canopy
       dummy.position.set(p.x, (4 + 2.5) * s, p.z)
       dummy.updateMatrix()
       lowerArr.push(dummy.matrix.clone())
-      // upper canopy
       dummy.position.set(p.x, (4 + 5.5) * s, p.z)
       dummy.updateMatrix()
       upperArr.push(dummy.matrix.clone())
@@ -139,22 +156,26 @@ function Trees() {
   }, [placements])
 
   const n = placements.length
+  if (n === 0) return null
 
   return (
     <group>
       <instancedMesh
+        key={`trunk-${n}`}
         args={[trunks, trunkMat, n]}
         castShadow
         receiveShadow
         ref={applyMatrices(matrices.trunkArr)}
       />
       <instancedMesh
+        key={`lower-${n}`}
         args={[lower, leafMat, n]}
         castShadow
         receiveShadow
         ref={applyMatrices(matrices.lowerArr)}
       />
       <instancedMesh
+        key={`upper-${n}`}
         args={[upper, leafMat2, n]}
         castShadow
         receiveShadow
@@ -164,12 +185,14 @@ function Trees() {
   )
 }
 
-// ── Rocks: jittered icosahedrons, half-buried ──────────────────────────────
-function Rocks() {
-  const placements = useMemo(() => scatter(7771, 50, 6, 6), [])
+// ── Rocks: jittered icosahedrons, half-buried, sparse on nature ─────────────
+function Rocks({ grid }: GridProp) {
+  const placements = useMemo(
+    () => scatterOnZones(grid, 7771, 0.02, { yardFactor: 0.1, minScale: 0.6, maxScale: 1.4 }),
+    [grid],
+  )
   const geo = useMemo(() => {
     const g = new THREE.IcosahedronGeometry(1, 0)
-    // jitter verts so each rock reads a bit different despite shared geometry
     const pos = g.attributes.position as THREE.BufferAttribute
     const rng = makeRng(42)
     for (let i = 0; i < pos.count; i++) {
@@ -192,7 +215,7 @@ function Rocks() {
     const dummy = new THREE.Object3D()
     const arr: THREE.Matrix4[] = []
     for (const p of placements) {
-      const s = p.scale * 1.6
+      const s = p.scale * 1.4
       dummy.position.set(p.x, s * 0.35, p.z)
       dummy.rotation.set(p.rot * 0.5, p.rot, p.rot * 0.3)
       dummy.scale.set(s, s * 0.7, s)
@@ -202,9 +225,13 @@ function Rocks() {
     return arr
   }, [placements])
 
+  const n = placements.length
+  if (n === 0) return null
+
   return (
     <instancedMesh
-      args={[geo, mat, placements.length]}
+      key={`rock-${n}`}
+      args={[geo, mat, n]}
       castShadow
       receiveShadow
       ref={applyMatrices(matrices)}
@@ -212,9 +239,12 @@ function Rocks() {
   )
 }
 
-// ── Bushes: clustered low dodecahedron blobs ───────────────────────────────
-function Bushes() {
-  const placements = useMemo(() => scatter(909, 80, 8, 10), [])
+// ── Bushes: clustered low dodecahedron blobs on nature + yards ──────────────
+function Bushes({ grid }: GridProp) {
+  const placements = useMemo(
+    () => scatterOnZones(grid, 909, 0.16, { yardFactor: 0.6, minScale: 0.7, maxScale: 1.5 }),
+    [grid],
+  )
   const geo = useMemo(() => new THREE.DodecahedronGeometry(1.3, 0), [])
   const mat = useMemo(
     () => new THREE.MeshStandardMaterial({ color: '#456b30', roughness: 1, flatShading: true }),
@@ -225,7 +255,7 @@ function Bushes() {
     const dummy = new THREE.Object3D()
     const arr: THREE.Matrix4[] = []
     for (const p of placements) {
-      const s = 0.6 + p.scale * 0.7
+      const s = 0.5 + p.scale * 0.6
       dummy.position.set(p.x, s * 0.6, p.z)
       dummy.rotation.set(0, p.rot, 0)
       dummy.scale.set(s, s * 0.75, s)
@@ -235,9 +265,13 @@ function Bushes() {
     return arr
   }, [placements])
 
+  const n = placements.length
+  if (n === 0) return null
+
   return (
     <instancedMesh
-      args={[geo, mat, placements.length]}
+      key={`bush-${n}`}
+      args={[geo, mat, n]}
       castShadow
       receiveShadow
       ref={applyMatrices(matrices)}
@@ -245,45 +279,70 @@ function Bushes() {
   )
 }
 
-// ── Grass tufts: crossed billboards, dense, no shadow cost ──────────────────
-function GrassTufts() {
-  const placements = useMemo(() => scatter(5550, 140, 14, 8), [])
+// ── Grass tufts: crossed billboards, dense + lush, LOD-thinned by distance ──
+function GrassTufts({ grid }: GridProp) {
+  // Dense on wild nature, sparse on yards. ~1.6/cell on nature gives a lush
+  // carpet; distance thinning (below) caps the visible count toward the edges.
+  const placements = useMemo(
+    () => scatterOnZones(grid, 5550, 1.6, { yardFactor: 0.5, minScale: 0.7, maxScale: 1.5 }),
+    [grid],
+  )
+
   const geo = useMemo(() => {
-    // two crossed quads
-    const a = new THREE.PlaneGeometry(1.4, 1.0)
+    // three crossed quads for a fuller tuft, anchored at the base.
+    const a = new THREE.PlaneGeometry(1.3, 1.1)
     const b = a.clone()
-    b.rotateY(Math.PI / 2)
-    const merged = mergeGeoms([a, b])
-    merged.translate(0, 0.5, 0)
+    b.rotateY(Math.PI / 3)
+    const c = a.clone()
+    c.rotateY((2 * Math.PI) / 3)
+    const merged = mergeGeoms([a, b, c])
+    merged.translate(0, 0.55, 0)
     return merged
   }, [])
+
+  // Two-tone grass with slight emissive lift so it stays lush in shadow.
   const mat = useMemo(
     () =>
       new THREE.MeshStandardMaterial({
-        color: '#5d8a39',
+        color: '#5f8f37',
         roughness: 1,
         side: THREE.DoubleSide,
-        transparent: false,
       }),
     [],
   )
 
-  const matrices = useMemo(() => {
+  const { matrices, count } = useMemo(() => {
     const dummy = new THREE.Object3D()
     const arr: THREE.Matrix4[] = []
+    // LOD thinning: keep all tufts near center, drop a growing fraction with
+    // distance so the far field doesn't pay for blades the fog mostly hides.
+    const rng = makeRng(99)
+    const maxR = (Math.SQRT2 * (GRID_W * CELL_SIZE_M)) / 2 // corner distance
     for (const p of placements) {
-      const s = 0.8 + p.scale * 1.2
+      const dx = p.x - CENTER_X
+      const dz = p.z - CENTER_Z
+      const d = Math.sqrt(dx * dx + dz * dz)
+      const keepProb = THREE.MathUtils.clamp(1 - (d / maxR) * 0.55, 0.45, 1)
+      if (rng() > keepProb) continue
+      const s = 1.0 + p.scale * 1.1
       dummy.position.set(p.x, 0, p.z)
       dummy.rotation.set(0, p.rot, 0)
-      dummy.scale.set(s, s, s)
+      dummy.scale.set(s, s * (0.9 + (p.x % 3) * 0.1), s)
       dummy.updateMatrix()
       arr.push(dummy.matrix.clone())
     }
-    return arr
+    return { matrices: arr, count: arr.length }
   }, [placements])
 
+  if (count === 0) return null
+
   return (
-    <instancedMesh args={[geo, mat, placements.length]} receiveShadow ref={applyMatrices(matrices)} />
+    <instancedMesh
+      key={`grass-${count}`}
+      args={[geo, mat, count]}
+      receiveShadow
+      ref={applyMatrices(matrices)}
+    />
   )
 }
 
@@ -296,12 +355,13 @@ function applyMatrices(matrices: THREE.Matrix4[]) {
     for (let i = 0; i < matrices.length; i++) {
       mesh.setMatrixAt(i, matrices[i])
     }
+    mesh.count = matrices.length
     mesh.instanceMatrix.needsUpdate = true
     mesh.computeBoundingSphere()
   }
 }
 
-/** Minimal geometry merge (positions + normals + uvs + index) for tufts. */
+/** Minimal geometry merge (positions + normals + uvs + index). */
 function mergeGeoms(geoms: THREE.BufferGeometry[]): THREE.BufferGeometry {
   const out = new THREE.BufferGeometry()
   const posArrays: number[] = []
