@@ -6,6 +6,7 @@ interface WorldStore {
   world: WorldState | null
   humanCommand: string
   isRunning: boolean
+  debrief: string | null   // AI after-action summary, set once the mission completes (read by the debrief overlay)
 
   setWorld: (world: WorldState) => void
   patchWorld: (patch: Partial<WorldState>) => void
@@ -13,6 +14,7 @@ interface WorldStore {
   clearHumanCommand: () => void
   addCommsEntry: (agent: AgentType, message: string, actionTag?: string) => void
   setRunning: (running: boolean) => void
+  setDebrief: (text: string) => void
 }
 
 export const useWorldStore = create<WorldStore>()(
@@ -20,6 +22,7 @@ export const useWorldStore = create<WorldStore>()(
     world: null,
     humanCommand: '',
     isRunning: false,
+    debrief: null,
 
     setWorld: (world) => set({ world }),
 
@@ -50,5 +53,6 @@ export const useWorldStore = create<WorldStore>()(
     },
 
     setRunning: (running) => set({ isRunning: running }),
+    setDebrief: (debrief) => set({ debrief }),
   }))
 )
