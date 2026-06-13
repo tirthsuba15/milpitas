@@ -76,16 +76,63 @@ export type Entity = RobotEntity | PersonEntity | DebrisEntity
 
 export type TerrainType = 'clear' | 'rubble' | 'asphalt' | 'mud' | 'water'
 
+// Land-use zone for a cell. Drives both pathfinding cost biasing and what the
+// visual agent renders on top of a cell. Deterministic, set once at world build.
+//   nature       — open green space / fields / parks (default surround)
+//   road         — suburban street; cheap to traverse, never built on
+//   sidewalk     — pedestrian strip flanking roads
+//   yard         — residential lot greenery around a house footprint
+//   house_lot    — a cell occupied by a house footprint (impassable)
+//   civic        — small civic/community block footprint (impassable)
+//   disaster_core— the central worn relief/work zone (the original demo region)
+export type ZoneType =
+  | 'nature'
+  | 'road'
+  | 'sidewalk'
+  | 'yard'
+  | 'house_lot'
+  | 'civic'
+  | 'disaster_core'
+
 export interface GridCell {
   x: number
   y: number
   elevation: number        // meters above sea level
   terrain: TerrainType
+  zone: ZoneType           // land-use classification (deterministic, seeded)
   traversalCost: number    // A* weight; 1.0 = normal, 10 = impassable
   fireIntensity: number    // 0–1
   floodDepth: number       // meters
   fuelLoad: number         // 0–1; burns down as fire spreads
   isRevealed: boolean      // fog of war
+}
+
+// ─── Suburban layout (seeded, deterministic) ───────────────────────────────────
+// A placed structure the visual agent maps to a model. Positions are in GRID
+// cells (gridX, gridZ) — convert to world with *cellSizeM. rotationDeg is the
+// yaw the model should face (0 = +Z). All produced by a seeded generator so
+// every render is identical.
+export type StructureType =
+  | 'house_small'
+  | 'house_medium'
+  | 'house_large'
+  | 'civic_block'
+
+export interface PlacedStructure {
+  id: string
+  type: StructureType
+  gridX: number        // cell column (footprint origin / center)
+  gridZ: number        // cell row
+  rotationDeg: number  // yaw in degrees, 0 = facing +Z
+  footprintCells: number   // square footprint side in cells (e.g. 2 = 2×2)
+}
+
+export interface SuburbLayout {
+  seed: number
+  structures: PlacedStructure[]
+  // World-space bounds of the central disaster/work zone (a sub-region, not a
+  // separate world). The renderer uses this to blend the worn ground patch.
+  disasterCore: { minX: number; minZ: number; maxX: number; maxZ: number }
 }
 
 // ─── Build sites ─────────────────────────────────────────────────────────────
@@ -158,11 +205,16 @@ export interface WorldState {
 
   entities: Entity[]
 
-  // 50×50 grid; access as grid[y][x]
+  // 100×100 grid @ 5 m/cell = 500 m square; access as grid[y][x].
+  // cell (x,y) ↔ world (x*cellSizeM, z=y*cellSizeM) on the XZ plane.
+  // Dimensions are sourced from src/simulation/grid.ts (single source of truth).
   grid: GridCell[][]
   gridWidth: number
   gridHeight: number
   cellSizeM: number   // meters per cell = 5
+
+  // Seeded suburban layout the renderer maps to models and the sim respects.
+  suburb: SuburbLayout
 
   buildSites: BuildSite[]
   inventory: MaterialInventory

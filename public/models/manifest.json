@@ -108,5 +108,155 @@
     "magicOk": true,
     "sizeKB": 1043,
     "notes": "Low-poly house by Quaternius via poly.pizza. Small prefab structure for rebuild sites. Direct file: https://static.poly.pizza/d42ffe97-ae91-40b8-9189-24fab8a608fb.glb"
+  },
+  {
+    "name": "House 2",
+    "category": "building",
+    "file": "/models/building/house2.glb",
+    "source": "https://poly.pizza/m/oJJIRwv6Bo",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 106,
+    "notes": "Low-poly single-family house variant by Quaternius via poly.pizza. Suburban home for neighborhood build-out. Direct file: https://static.poly.pizza/65d155f6-705c-4e6c-9e3a-b9974bb82324.glb"
+  },
+  {
+    "name": "House 3",
+    "category": "building",
+    "file": "/models/building/house3.glb",
+    "source": "https://poly.pizza/m/RSwoYSLblu",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 153,
+    "notes": "Low-poly single-family house variant by Quaternius via poly.pizza. Distinct suburban home shape for variety. Direct file: https://static.poly.pizza/d1ec68ce-6b50-45b8-9806-47dc8bfddd84.glb"
+  },
+  {
+    "name": "Town House",
+    "category": "building",
+    "file": "/models/building/townhouse.glb",
+    "source": "https://poly.pizza/m/imVkxz7oZD",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 1893,
+    "notes": "Low-poly two-story town house by Quaternius via poly.pizza. Low-rise multi-unit home for denser suburban blocks. Direct file: https://static.poly.pizza/8467654d-d4e7-460e-9484-969bd122a40a.glb"
+  },
+  {
+    "name": "Cottage",
+    "category": "building",
+    "file": "/models/building/cottage.glb",
+    "source": "https://poly.pizza/m/YDGLLT0emC",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 177,
+    "notes": "Low-poly cottage by CreativeTrio via poly.pizza. Small single-family home variant for the suburban mix. Direct file: https://static.poly.pizza/8ab3d7cd-dcce-4535-8c64-a22aa0487050.glb"
+  },
+  {
+    "name": "Two Story House",
+    "category": "building",
+    "file": "/models/building/house_twostory.glb",
+    "source": "https://poly.pizza/m/sGgL4Nt7I7",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 40,
+    "notes": "Low-poly two-story house by Kenney (kenney.nl) via poly.pizza. Compact suburban home variant. Direct file: https://static.poly.pizza/b2dea819-c4b8-4304-9453-1f1d243f0817.glb"
+  },
+  {
+    "name": "Modular Road Kit",
+    "category": "street",
+    "file": "/models/street/road.glb",
+    "source": "https://poly.pizza/m/YClppstaHV",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 793,
+    "notes": "Low-poly modular road kit (straight roads, intersections, sidewalks/curbs) by Kenney (kenney.nl) via poly.pizza. Use pieces to lay out the suburban street grid. Direct file: https://static.poly.pizza/be4a2916-8050-452e-8aee-4cceda8ef6eb.glb"
+  },
+  {
+    "name": "Street Light",
+    "category": "street",
+    "file": "/models/street/streetlight.glb",
+    "source": "https://poly.pizza/m/nFwrlcLvM5",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 11,
+    "notes": "Low-poly street light / lamp post by Quaternius via poly.pizza. Line along roads and sidewalks. Direct file: https://static.poly.pizza/9a8aac3e-d1ee-4860-b294-edca62ef50be.glb"
+  },
+  {
+    "name": "Fence",
+    "category": "street",
+    "file": "/models/street/fence.glb",
+    "source": "https://poly.pizza/m/e02PFKKhbr",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 10,
+    "notes": "Low-poly wooden fence segment by Quaternius via poly.pizza. Tile along yard boundaries. Direct file: https://static.poly.pizza/ee42b0f4-fbcd-425f-804e-02d791bc35f6.glb"
+  },
+  {
+    "name": "Metal Fence",
+    "category": "street",
+    "file": "/models/street/fence_metal.glb",
+    "source": "https://poly.pizza/m/qWKhREFj7H",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 87,
+    "notes": "Low-poly metal/chain fence segment by Quaternius via poly.pizza. Alternate fence style for variety. Direct file: https://static.poly.pizza/94d06743-b682-4a86-9bba-499c351282b7.glb"
+  },
+  {
+    "name": "Bench",
+    "category": "street",
+    "file": "/models/street/bench.glb",
+    "source": "https://poly.pizza/m/jLxjFxFRpw",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 21,
+    "notes": "Low-poly park bench by Quaternius via poly.pizza. Street/park furniture. Direct file: https://static.poly.pizza/1361c268-20f7-4e73-a931-ce434c6b503e.glb"
+  },
+  {
+    "name": "Sedan",
+    "category": "street",
+    "file": "/models/street/car_sedan.glb",
+    "source": "https://poly.pizza/m/Cz6yDaUcM9",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 161,
+    "notes": "Low-poly sedan car by Quaternius via poly.pizza. Parked vehicle in driveways/curbside. Direct file: https://static.poly.pizza/59a67a6c-490e-472e-bae6-5a4d2541f1c7.glb"
+  },
+  {
+    "name": "Sedan 2",
+    "category": "street",
+    "file": "/models/street/car_sedan2.glb",
+    "source": "https://poly.pizza/m/unqqkULtRU",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 170,
+    "notes": "Second low-poly sedan car variant by Quaternius via poly.pizza. Parked vehicle for variety. Direct file: https://static.poly.pizza/d35173c8-6078-4367-8f87-b1f2599f0bb7.glb"
+  },
+  {
+    "name": "Mail Box",
+    "category": "street",
+    "file": "/models/street/mailbox.glb",
+    "source": "https://poly.pizza/m/VlxwPqpKSZ",
+    "license": "CC-BY 4.0",
+    "magicOk": true,
+    "sizeKB": 14,
+    "notes": "Low-poly residential mailbox by Zsky via poly.pizza. CC-BY: requires attribution to Zsky. Curbside prop for suburban homes. Direct file: https://static.poly.pizza/e4cdddc7-b250-4972-b8f9-980ee6032ebd.glb"
+  },
+  {
+    "name": "Hedge",
+    "category": "nature",
+    "file": "/models/nature/hedge.glb",
+    "source": "https://poly.pizza/m/So5EAOMoNy",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 30,
+    "notes": "Low-poly straight hedge segment by Isa Lousberg via poly.pizza. Tile along yard edges as a green boundary. Direct file: https://static.poly.pizza/5f4cc353-cd03-42d3-ad93-8eca79712673.glb"
+  },
+  {
+    "name": "Flowers",
+    "category": "nature",
+    "file": "/models/nature/flowers.glb",
+    "source": "https://poly.pizza/m/NBUxHir6FJ",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 364,
+    "notes": "Low-poly flowers/plant cluster by Quaternius via poly.pizza. Garden/yard filler greenery. Direct file: https://static.poly.pizza/c25cb5dc-3cd3-470c-a08c-045af0c0fe3d.glb"
   }
 ]

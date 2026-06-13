@@ -2,11 +2,10 @@ import { useWorldStore } from '@/store/worldStore'
 import { Section } from './Section'
 import { Scoreboard } from './Scoreboard'
 import { CarbonMeter } from './CarbonMeter'
-import { CommsLog } from './CommsLog'
 import { OperatorPanel } from './OperatorPanel'
 import styles from './hud.module.css'
 
-export type SectionId = 'status' | 'carbon' | 'comms' | 'operator'
+export type SectionId = 'status' | 'carbon' | 'operator'
 
 export function Dashboard({
   open,
@@ -64,10 +63,7 @@ export function Dashboard({
         <Section id="carbon" num="02" title="Carbon Ledger" accent={timberCritical ? 'crit' : 'good'} open={open.carbon} onToggle={() => onToggle('carbon')}>
           <CarbonMeter />
         </Section>
-        <Section id="comms" num="03" title="Mission Comms" accent="sig" open={open.comms} onToggle={() => onToggle('comms')}>
-          <CommsLog />
-        </Section>
-        <Section id="operator" num="04" title="Operator Console" accent="sig" open={open.operator} onToggle={() => onToggle('operator')}>
+        <Section id="operator" num="03" title="Operator Console" accent="sig" open={open.operator} onToggle={() => onToggle('operator')}>
           <OperatorPanel />
         </Section>
       </div>

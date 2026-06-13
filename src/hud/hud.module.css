@@ -36,17 +36,25 @@
 .railStatV.warn { color: var(--warn); }
 .railRight { display: flex; align-items: center; gap: 20px; margin-left: auto; padding-left: 22px; }
 .railClockWrap { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-.railClockMain { display: flex; align-items: baseline; gap: 8px; }
+.railClockMain { display: flex; align-items: center; gap: 8px; }
 .railClockLabel { font-family: var(--cond); font-weight: 600; font-size: 9px; letter-spacing: .2em;
   text-transform: uppercase; color: var(--sig); }
 .railClock { font-family: var(--mono); font-size: 20px; font-weight: 500; color: var(--ink);
   letter-spacing: .03em; font-variant-numeric: tabular-nums; line-height: 1; }
-.railZones { display: flex; gap: 12px; }
-.railZone { display: inline-flex; align-items: baseline; gap: 5px; }
-.railZoneCode { font-family: var(--cond); font-weight: 600; font-size: 8px; letter-spacing: .14em;
-  text-transform: uppercase; color: var(--ink-faint); }
-.railZoneTime { font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
-  font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.railClockSelect { position: relative; display: inline-flex; align-items: center; }
+.railZoneSelect {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  border: 1px solid var(--line); border-radius: 4px;
+  color: var(--sig); font-family: var(--cond); font-weight: 600; font-size: 10px;
+  letter-spacing: .2em; text-transform: uppercase; cursor: pointer;
+  padding: 3px 18px 3px 8px; line-height: 1; outline: none;
+}
+.railZoneSelect:hover { border-color: var(--sig); }
+.railZoneSelect:focus-visible { border-color: var(--sig); box-shadow: 0 0 0 1px var(--sig-glow); }
+.railZoneSelect option { background: var(--panel); color: var(--ink); }
+.railZoneCaret { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  font-size: 8px; color: var(--ink-faint); pointer-events: none; }
 .railStatus { display: flex; align-items: center; gap: 8px; font-family: var(--cond); font-weight: 600;
   font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
 .statusDot { width: 8px; height: 8px; border-radius: 50%; background: var(--good); box-shadow: 0 0 8px var(--good); }

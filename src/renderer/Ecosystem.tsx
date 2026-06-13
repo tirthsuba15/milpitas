@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { CORE_MIN_X, CORE_MAX_X, CENTER_X, CENTER_Z } from '@/simulation/grid'
 
 /**
  * Procedural low-poly ecosystem scattered across the world floor.
@@ -11,10 +12,12 @@ import * as THREE from 'three'
  *   - density ramps UP toward the surround, clustered in groves, not uniform
  */
 
-const CORE_MIN = 0
-const CORE_MAX = 250
-const CORE_CX = 125
-const CORE_CZ = 125
+// Keep the disaster core clear of procedural nature; scatter fills the rest of
+// the map. Bounds tracked from grid.ts so they follow the live grid.
+const CORE_MIN = CORE_MIN_X   // 125
+const CORE_MAX = CORE_MAX_X   // 375
+const CORE_CX = CENTER_X      // 250
+const CORE_CZ = CENTER_Z      // 250
 
 // Scatter ring: out to here from the core; beyond this the fog hides the ground.
 const FIELD_HALF = 1100

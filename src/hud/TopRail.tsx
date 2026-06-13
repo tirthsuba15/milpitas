@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { useWorldStore } from '@/store/worldStore'
 import styles from './hud.module.css'
 
-// UTC is the default operational reference; the strip adds regional ops zones.
+// UTC is the default operational reference; the dropdown switches the main time zone.
 const ZONES = [
+  { code: 'UTC', tz: 'UTC' },
   { code: 'SFO', tz: 'America/Los_Angeles' },
   { code: 'NYC', tz: 'America/New_York' },
   { code: 'LON', tz: 'Europe/London' },
@@ -31,7 +32,9 @@ export function TopRail() {
   const isRunning = useWorldStore(s => s.isRunning)
 
   const now = useNow()
-  const utc = timeIn(now, 'UTC', true)
+  const [zoneCode, setZoneCode] = useState('UTC')
+  const zone = ZONES.find(z => z.code === zoneCode) ?? ZONES[0]
+  const localTime = timeIn(now, zone.tz, true)
 
   const score = world?.score
   const carbonPct = world && world.carbon.baselineKgCo2e > 0
@@ -64,16 +67,20 @@ export function TopRail() {
       <div className={styles.railRight}>
         <div className={styles.railClockWrap}>
           <div className={styles.railClockMain}>
-            <span className={styles.railClockLabel}>UTC</span>
-            <span className={styles.railClock}>{utc}</span>
-          </div>
-          <div className={styles.railZones}>
-            {ZONES.map(z => (
-              <span key={z.code} className={styles.railZone}>
-                <span className={styles.railZoneCode}>{z.code}</span>
-                <span className={styles.railZoneTime}>{timeIn(now, z.tz)}</span>
-              </span>
-            ))}
+            <div className={styles.railClockSelect}>
+              <select
+                className={styles.railZoneSelect}
+                value={zoneCode}
+                onChange={e => setZoneCode(e.target.value)}
+                aria-label="Time zone"
+              >
+                {ZONES.map(z => (
+                  <option key={z.code} value={z.code}>{z.code}</option>
+                ))}
+              </select>
+              <span className={styles.railZoneCaret} aria-hidden="true">▾</span>
+            </div>
+            <span className={styles.railClock}>{localTime}</span>
           </div>
         </div>
         <div className={styles.railStatus}>

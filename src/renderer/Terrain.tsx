@@ -1,15 +1,24 @@
 import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { useTexture } from '@react-three/drei'
+import {
+  WORLD_SIZE_M, CENTER_X, CENTER_Z,
+  CORE_MIN_X, CORE_MIN_Z, CORE_MAX_X, CORE_MAX_Z,
+} from '@/simulation/grid'
 
-const GRID_SIZE_M = 250
-const CENTER_X = GRID_SIZE_M / 2
-const CENTER_Z = GRID_SIZE_M / 2
+// Full map extent (500 m). Single source of truth via grid.ts.
+const GRID_SIZE_M = WORLD_SIZE_M
+
+// Central disaster/work zone — a SUB-REGION of the map (world 125–375), not a
+// separate slab. Rendered as a worn ground patch that blends into the suburb.
+const CORE_SIZE_M = CORE_MAX_X - CORE_MIN_X
+const CORE_CENTER_X = (CORE_MIN_X + CORE_MAX_X) / 2
+const CORE_CENTER_Z = (CORE_MIN_Z + CORE_MAX_Z) / 2
 
 // The whole world floor. A single huge plane sitting flush at y=0 that runs
 // out to the horizon (where <fog> dissolves it into the sky). On top of it the
-// sim core (0–250 in x/z) reads slightly more worn/scorched — a work zone —
-// but it is the SAME flat ground, no slab edge.
+// central core reads slightly more worn/scorched — a work zone — but it is the
+// SAME flat ground, no slab edge.
 const SURROUND_SIZE_M = 3000
 
 export function Terrain() {
@@ -67,9 +76,10 @@ function GrassSurround() {
 }
 
 /**
- * The playable disaster/work zone (0–250 in x & z). Same ground, sitting just
- * a hair above the grass so it z-fights nothing — a touch browner/worn to read
- * as a trampled, scorched relief zone. Soft-edged so it blends into the grass.
+ * The playable disaster/work zone — a sub-region centered on the map (world
+ * 125–375). Same ground, sitting just a hair above the grass so it z-fights
+ * nothing — a touch browner/worn to read as a trampled, scorched relief zone.
+ * Soft-edged so it blends into the suburb.
  */
 function SimCore() {
   const [albedo, roughness] = useTexture([
@@ -93,10 +103,10 @@ function SimCore() {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[CENTER_X, 0.0, CENTER_Z]}
+      position={[CORE_CENTER_X, 0.0, CORE_CENTER_Z]}
       receiveShadow
     >
-      <planeGeometry args={[GRID_SIZE_M, GRID_SIZE_M, 32, 32]} />
+      <planeGeometry args={[CORE_SIZE_M, CORE_SIZE_M, 32, 32]} />
       <meshStandardMaterial
         map={coreAlbedo}
         roughnessMap={coreRough}
@@ -126,9 +136,10 @@ function RubbleMounds() {
     const rng = (min: number, max: number) => min + Math.random() * (max - min)
 
     for (let i = 0; i < 120; i++) {
-      // Cluster rubble in the disaster zone (northwest)
-      const x = rng(5, 90)
-      const z = rng(5, 100)
+      // Cluster rubble in the disaster core's NW (core spans world 125–375;
+      // legacy 5–90 / 5–100 offset by +125 keeps the original look, centered).
+      const x = CORE_MIN_X + rng(5, 90)
+      const z = CORE_MIN_Z + rng(5, 100)
       dummy.position.set(x, rng(0.2, 1.2), z)
       dummy.rotation.set(rng(-0.2, 0.2), rng(0, Math.PI * 2), rng(-0.2, 0.2))
       dummy.scale.setScalar(rng(0.4, 2.0))

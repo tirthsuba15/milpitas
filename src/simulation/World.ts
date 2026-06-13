@@ -1,17 +1,26 @@
-import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEntity, DebrisEntity, Task, AgentType, Vec3 } from '@/types'
+import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEntity, DebrisEntity, Task, AgentType, Vec3, BuildSite } from '@/types'
 import { findPath } from './pathfinding'
 import { spreadHazards } from './hazards'
 import { decayPersonUrgency, updateFogOfWar } from './entities'
 import { updateCarbonLedger, addSalvage, deductMaterial } from './ledger'
 import { updateScore } from './scoring'
 import { bus } from '@/events/bus'
+import { GRID_W, GRID_H, CELL_SIZE_M, CORE_MIN_X, CORE_MIN_Z, isCoreCell } from './grid'
+import { buildSuburb, zoneBaseCost, zoneTerrain } from './suburb'
 
-const GRID_W = 50
-const GRID_H = 50
-const CELL_SIZE_M = 5
+// The original demo authored entities/sites in a 0–250 m world. The disaster
+// core now lives as a sub-region centered on the 500 m map (world 125–375), so
+// every legacy position is shifted by this offset into the core. Keeping the
+// authoring numbers untouched + offsetting keeps the demo identical, just centered.
+const CORE_OFFSET_X = CORE_MIN_X  // 125
+const CORE_OFFSET_Z = CORE_MIN_Z  // 125
+
+// Run the fire/flood CA every N ticks (deltaS scaled to preserve spread rate).
+const HAZARD_EVERY = 3
 
 export function createInitialWorld(): WorldState {
-  const grid = buildGrid()
+  const { zones, layout } = buildSuburb()
+  const grid = buildGrid(zones)
   const entities = buildInitialEntities()
 
   return {
@@ -23,16 +32,17 @@ export function createInitialWorld(): WorldState {
     gridWidth: GRID_W,
     gridHeight: GRID_H,
     cellSizeM: CELL_SIZE_M,
-    // 2×3 neighbourhood grid — row 1 at z=58, row 2 at z=90; columns at x=145/165/185
-    // roads run between rows at z=76 and along the block edge at x=133
-    buildSites: [
+    suburb: layout,
+    // 2×3 neighbourhood grid inside the central disaster core (authored in the
+    // legacy 0–250 frame, shifted +125 into the core via offsetSite()).
+    buildSites: ([
       { id: 'site-1', position: { x: 145, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-2', position: { x: 165, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-3', position: { x: 185, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-4', position: { x: 145, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-5', position: { x: 165, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
       { id: 'site-6', position: { x: 185, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-    ],
+    ] satisfies BuildSite[]).map(offsetSite),
     inventory: {
       importedTimber: 8000,
       importedPanels: 2000,
@@ -66,7 +76,12 @@ export class World {
     }
 
     this._advanceUnits(deltaS)
-    this.state = { ...this.state, grid: spreadHazards(this.state, deltaS) }
+    // Throttle the hazard cellular automaton: on the 100×100 grid scanning every
+    // tick is wasteful (fire/flood only live in the core). Run it every
+    // HAZARD_EVERY ticks with a scaled deltaS so the spread RATE is unchanged.
+    if (this.state.tick % HAZARD_EVERY === 0) {
+      this.state = { ...this.state, grid: spreadHazards(this.state, deltaS * HAZARD_EVERY) }
+    }
     this.state = decayPersonUrgency(this.state, deltaS)
     this.state = updateFogOfWar(this.state)
     this._updateHousingAssignments()   // after discovery is set in updateFogOfWar
@@ -114,8 +129,14 @@ export class World {
   }
 
   triggerSecondStorm(): void {
+    // Ignite a fresh fire band along the NORTH edge of the disaster core (core
+    // cells 25..75 in each axis; this band sits at the core's top, in suburb-
+    // adjacent territory so it threatens the neighborhood too).
     const grid = this.state.grid.map(row => row.map(cell => {
-      if (cell.y < 15 && cell.x > 20 && cell.x < 35) return { ...cell, fireIntensity: Math.min(1, cell.fireIntensity + 0.8), fuelLoad: 1 }
+      const cx = cell.x - (this.state.gridWidth / 2 - 25)
+      const cy = cell.y - (this.state.gridHeight / 2 - 25)
+      const inCore = isCoreCell(cell.x, cell.y)
+      if (inCore && cy < 15 && cx > 20 && cx < 35) return { ...cell, fireIntensity: Math.min(1, cell.fireIntensity + 0.8), fuelLoad: 1 }
       return cell
     }))
     this.state = { ...this.state, grid, windDirection: { dx: 0, dy: 1 }, activeEvents: [...this.state.activeEvents, 'second_storm'] }
@@ -297,23 +318,50 @@ export class World {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function buildGrid(): GridCell[][] {
+// Builds the full 100×100 grid. Hazards (fire/flood/rubble) live ONLY inside the
+// central disaster core; outside is the seeded suburb (zones drive terrain +
+// base traversal cost). Core hazards are authored in core-local cell coords
+// (0..50) so the original demo footprint is preserved, just centered.
+function buildGrid(zones: import('@/types').ZoneType[][]): GridCell[][] {
   return Array.from({ length: GRID_H }, (_, y) =>
     Array.from({ length: GRID_W }, (_, x) => {
-      const isFireZone = x < 18 && y < 20
-      const isFloodZone = x > 38
+      const zone = zones[y][x]
+      const inCore = isCoreCell(x, y)
+      // core-local coords (0-based within the 50×50 core)
+      const cx = x - (GRID_W / 2 - 25)
+      const cy = y - (GRID_H / 2 - 25)
+
+      const isFireZone = inCore && cx < 18 && cy < 20
+      const isFloodZone = inCore && cx > 38
+
+      let terrain: GridCell['terrain']
+      let traversalCost: number
+      if (isFireZone) { terrain = 'rubble'; traversalCost = 2 }
+      else if (isFloodZone) { terrain = 'water'; traversalCost = 5 }
+      else { terrain = zoneTerrain(zone); traversalCost = zoneBaseCost(zone) }
+
       return {
         x, y,
         elevation: 10 + Math.sin(x * 0.3) * 3 + Math.cos(y * 0.2) * 2,
-        terrain: isFireZone ? 'rubble' : isFloodZone ? 'water' : 'clear',
-        traversalCost: isFireZone ? 2 : isFloodZone ? 5 : 1,
-        fireIntensity: isFireZone && x < 10 && y < 10 ? 0.7 : 0,
+        terrain,
+        zone,
+        traversalCost,
+        fireIntensity: isFireZone && cx < 10 && cy < 10 ? 0.7 : 0,
         floodDepth: isFloodZone ? 0.4 : 0,
         fuelLoad: isFireZone ? 0.8 : 0.3,
-        isRevealed: y > 40,   // only spawn area revealed at start
+        // Reveal the southern spawn strip at start (core-local cy > 40 → south edge of core).
+        isRevealed: inCore && cy > 40,
       } satisfies GridCell
     })
   )
+}
+
+// Shift a legacy (0–250 m frame) position into the centered disaster core.
+function offsetPos(p: Vec3): Vec3 {
+  return { x: p.x + CORE_OFFSET_X, y: p.y, z: p.z + CORE_OFFSET_Z }
+}
+function offsetSite<T extends { position: Vec3 }>(s: T): T {
+  return { ...s, position: offsetPos(s.position) }
 }
 
 function buildInitialEntities(): Entity[] {
@@ -351,5 +399,6 @@ function buildInitialEntities(): Entity[] {
     { kind: 'debris', id: 'deb-6', position: {x:60,y:0,z:140}, debrisType: 'contaminated',     massKg: 800,  kgCo2eIfSalvaged: 0,    salvaged: false },
   ]
 
-  return [...robots, ...people, ...debris]
+  // Shift every legacy position into the centered disaster core.
+  return [...robots, ...people, ...debris].map(e => ({ ...e, position: offsetPos(e.position) }))
 }

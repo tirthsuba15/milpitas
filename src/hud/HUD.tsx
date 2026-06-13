@@ -22,7 +22,7 @@ export function HUD() {
   const showDebrief = phase === 'complete' || forceDebrief
 
   const [open, setOpen] = useState<Record<SectionId, boolean>>({
-    status: true, carbon: true, comms: true, operator: true,
+    status: true, carbon: true, operator: true,
   })
   const [dashCollapsed, setDashCollapsed] = useState(false)
 
