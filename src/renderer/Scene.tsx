@@ -24,7 +24,7 @@ export function Scene() {
       <Suspense fallback={null}>
         {/* HDRI environment — ambient IBL + cinematic overcast sky background */}
         <Environment
-          files="/hdri/kloofendal_overcast.hdr"
+          preset="sunset"
           background
           backgroundBlurriness={0.06}
         />
