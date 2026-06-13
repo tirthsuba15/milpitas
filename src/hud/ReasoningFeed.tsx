@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useWorldStore, type ReasoningKind } from '@/store/worldStore'
 import styles from './hud.module.css'
 
@@ -19,16 +18,25 @@ function clock(tick: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function ReasoningFeed({ width, resizing }: { width?: number; resizing?: boolean }) {
+export function ReasoningFeed({
+  width,
+  resizing,
+  collapsed,
+  onToggleCollapse,
+}: {
+  width?: number
+  resizing?: boolean
+  collapsed: boolean
+  onToggleCollapse: () => void
+}) {
   const reasoning = useWorldStore(s => s.reasoning)
   const isRunning = useWorldStore(s => s.isRunning)
-  const [collapsed, setCollapsed] = useState(false)
 
   if (collapsed) {
     return (
       <div className={`${styles.mindFeed} ${styles.collapsed}`}>
         <div className={styles.railTab}>
-          <button type="button" className={styles.collapseBtn} aria-label="Expand reasoning feed" onClick={() => setCollapsed(false)}>
+          <button type="button" className={styles.collapseBtn} aria-label="Expand reasoning feed" onClick={onToggleCollapse}>
             ›
           </button>
           <div className={styles.railTabMark}>Reasoning</div>
@@ -47,7 +55,7 @@ export function ReasoningFeed({ width, resizing }: { width?: number; resizing?: 
           <div className={styles.mindTitle}>
             COMMAND CENTER
           </div>
-          <button type="button" className={styles.collapseBtn} aria-label="Collapse reasoning feed" onClick={() => setCollapsed(true)}>
+          <button type="button" className={styles.collapseBtn} aria-label="Collapse reasoning feed" onClick={onToggleCollapse}>
             ‹
           </button>
         </div>

@@ -217,6 +217,43 @@
 .injectBtn.iCrit { border-color: rgba(242,96,106,.5); color: var(--crit); }
 .injectBtn.iSig  { border-color: rgba(92,143,214,.5); color: var(--sig); }
 
+/* ════ BOTTOM MISSION COMMS (docked, resizable height) ══════════════════ */
+.bottomComms {
+  position: fixed; bottom: 44px; z-index: 36;
+  display: flex; flex-direction: column; overflow: hidden; pointer-events: auto;
+  background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(9px);
+  border-top: 1px solid var(--line); border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  box-shadow: 0 -8px 40px rgba(0,0,0,.45);
+  transition: height .28s cubic-bezier(.4,0,.2,1);
+}
+.bottomComms.collapsed { height: 30px; }
+
+/* horizontal drag handle on the panel's TOP edge → reports clientY → height */
+.commsResizer { position: absolute; left: 0; right: 0; top: 0; height: 8px; z-index: 2;
+  cursor: row-resize; pointer-events: auto; }
+.commsResizer::after { content: ''; position: absolute; left: 0; right: 0; top: 3px; height: 2px;
+  background: transparent; transition: background .15s; }
+.commsResizer:hover::after, .commsResizer:active::after, .commsResizer.resizing::after {
+  background: var(--sig); box-shadow: 0 0 8px var(--sig-glow); }
+
+.bottomCommsHead { flex-shrink: 0; display: flex; align-items: center; gap: 12px;
+  padding: 11px 18px 10px; border-bottom: 1px solid var(--line); }
+.bottomCommsTitle { flex: 1; display: flex; align-items: center; gap: 9px; font-family: var(--cond);
+  font-weight: 700; font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: var(--ink); }
+.bottomCommsTitle .bar { height: 16px; }
+.bottomCommsBody { flex: 1; min-height: 0; overflow: hidden; padding: 6px 18px 12px; }
+/* let the log fill the panel instead of the embedded 180px cap */
+.bottomCommsBody .commsBody { height: 100%; }
+.bottomCommsBody .logList { max-height: none; height: 100%; }
+
+/* collapsed thin tab */
+.bottomCommsTab { width: 100%; height: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 0 18px; background: transparent; border: none; cursor: pointer; }
+.bottomCommsTab:hover .bottomCommsTabMark { color: var(--sig); }
+.bottomCommsTab:focus-visible { outline: 2px solid var(--sig); outline-offset: -2px; }
+.bottomCommsTabMark { font-family: var(--cond); font-weight: 700; font-size: 11px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--ink-dim); }
+
 /* ════ MISSION STATUS (embedded) ════════════════════════════════════════ */
 .statusGrid { display: flex; flex-direction: column; gap: 14px; }
 .statHero { display: flex; flex-direction: column; gap: 5px; }

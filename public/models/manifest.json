@@ -1,0 +1,112 @@
+[
+  {
+    "name": "RobotExpressive",
+    "category": "robot",
+    "file": "/models/robot/robot_expressive.glb",
+    "source": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/RobotExpressive/RobotExpressive.glb",
+    "license": "CC-BY 4.0",
+    "magicOk": true,
+    "sizeKB": 453,
+    "notes": "Rigged + animated humanoid robot by Tomás Laulhé (modified by Don McCurdy), shipped with three.js. Great for an autonomous ground unit; has walk/run/idle animation clips."
+  },
+  {
+    "name": "Xbot",
+    "category": "robot",
+    "file": "/models/robot/xbot.glb",
+    "source": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Xbot.glb",
+    "license": "MIT (three.js example asset)",
+    "magicOk": true,
+    "sizeKB": 2861,
+    "notes": "Rigged animated character robot from three.js examples. Alternate humanoid bot for the fleet."
+  },
+  {
+    "name": "Ferrari",
+    "category": "robot",
+    "file": "/models/robot/ferrari.glb",
+    "source": "https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/ferrari.glb",
+    "license": "MIT (three.js example asset)",
+    "magicOk": true,
+    "sizeKB": 1642,
+    "notes": "Detailed car body. Usable as a fast wheeled ground vehicle / chase unit if a sleeker rover is wanted."
+  },
+  {
+    "name": "Rover",
+    "category": "robot",
+    "file": "/models/robot/rover.glb",
+    "source": "https://poly.pizza/m/tzOLXetacM",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 324,
+    "notes": "Low-poly wheeled rover by Quaternius via poly.pizza. Ideal autonomous ground robot. Direct file: https://static.poly.pizza/7992e6b4-8add-45a9-86fd-f208237d293c.glb"
+  },
+  {
+    "name": "Round Rover",
+    "category": "robot",
+    "file": "/models/robot/rover2.glb",
+    "source": "https://poly.pizza/m/WRd1piJOfh",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 353,
+    "notes": "Second low-poly rover variant by Quaternius via poly.pizza. Direct file: https://static.poly.pizza/d2dd449f-dd0b-440f-9c62-bfa7e6039a43.glb"
+  },
+  {
+    "name": "Quadcopter Drone",
+    "category": "robot",
+    "file": "/models/robot/drone.glb",
+    "source": "https://poly.pizza/m/DNbUoMtG3H",
+    "license": "CC-BY 4.0",
+    "magicOk": true,
+    "sizeKB": 254,
+    "notes": "Quad-rotor remote drone with underside camera by NateGazzard via poly.pizza. CC-BY: requires attribution to NateGazzard. Direct file: https://static.poly.pizza/4eb88feb-cb2d-46c3-980d-3e704868361c.glb"
+  },
+  {
+    "name": "Tree",
+    "category": "nature",
+    "file": "/models/nature/tree.glb",
+    "source": "https://poly.pizza/m/2paAm1ja4w",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 155,
+    "notes": "Low-poly tree by Quaternius via poly.pizza. For scattering across terrain. Direct file: https://static.poly.pizza/18bfa206-01b3-4368-a391-513f21078bb1.glb"
+  },
+  {
+    "name": "Rocks",
+    "category": "nature",
+    "file": "/models/nature/rocks.glb",
+    "source": "https://poly.pizza/m/OQvi8PIZ40",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 6,
+    "notes": "Low-poly rock cluster by Quaternius via poly.pizza. Small file but valid glTF. Direct file: https://static.poly.pizza/c6f65def-08c5-4c81-b17f-f37b171ad911.glb"
+  },
+  {
+    "name": "Bush",
+    "category": "nature",
+    "file": "/models/nature/bush.glb",
+    "source": "https://poly.pizza/m/ooG6CkLyE8",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 128,
+    "notes": "Low-poly bush/shrub by Quaternius via poly.pizza. Direct file: https://static.poly.pizza/6bbb833e-26cb-4bf9-ae67-a31b98e30bd9.glb"
+  },
+  {
+    "name": "Grass",
+    "category": "nature",
+    "file": "/models/nature/grass.glb",
+    "source": "https://poly.pizza/m/iw6l7gqcdQ",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 25,
+    "notes": "Low-poly grass clump by Quaternius via poly.pizza. Direct file: https://static.poly.pizza/75a19389-fb56-4884-851b-b011bf25a56a.glb"
+  },
+  {
+    "name": "House",
+    "category": "building",
+    "file": "/models/building/house.glb",
+    "source": "https://poly.pizza/m/roqiHdrpgc",
+    "license": "CC0 (Public Domain)",
+    "magicOk": true,
+    "sizeKB": 1043,
+    "notes": "Low-poly house by Quaternius via poly.pizza. Small prefab structure for rebuild sites. Direct file: https://static.poly.pizza/d42ffe97-ae91-40b8-9189-24fab8a608fb.glb"
+  }
+]

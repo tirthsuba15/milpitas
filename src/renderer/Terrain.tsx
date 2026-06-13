@@ -1,47 +1,114 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import * as THREE from 'three'
-import { Plane, useTexture } from '@react-three/drei'
+import { useTexture } from '@react-three/drei'
 
 const GRID_SIZE_M = 250
+const CENTER_X = GRID_SIZE_M / 2
+const CENTER_Z = GRID_SIZE_M / 2
+
+// The whole world floor. A single huge plane sitting flush at y=0 that runs
+// out to the horizon (where <fog> dissolves it into the sky). On top of it the
+// sim core (0–250 in x/z) reads slightly more worn/scorched — a work zone —
+// but it is the SAME flat ground, no slab edge.
+const SURROUND_SIZE_M = 3000
 
 export function Terrain() {
   return (
     <group>
-      <GroundPlane />
+      <GrassSurround />
+      <SimCore />
       <RubbleMounds />
     </group>
   )
 }
 
-function GroundPlane() {
-  // Real aerial PBR ground from public/textures/ (albedo + roughness present).
+/**
+ * The vast grass groundplane reaching the horizon. Tiles the ground albedo at
+ * a high repeat and tints it green so it reads as a healthy grass field
+ * (a Roblox-baseplate-style ground sitting ON the world). Centred on the sim
+ * core so the core sits in the middle of the world.
+ */
+function GrassSurround() {
   const [albedo, roughness] = useTexture([
     '/textures/ground_albedo.jpg',
     '/textures/ground_roughness.jpg',
   ])
 
-  for (const t of [albedo, roughness]) {
-    t.wrapS = t.wrapT = THREE.RepeatWrapping
-    t.repeat.set(8, 8)
-  }
-  albedo.colorSpace = THREE.SRGBColorSpace
+  const [grassAlbedo, grassRough] = useMemo(() => {
+    const a = albedo.clone()
+    const r = roughness.clone()
+    for (const t of [a, r]) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.repeat.set(120, 120) // dense tiling so detail survives at the horizon
+      t.anisotropy = 8
+      t.needsUpdate = true
+    }
+    a.colorSpace = THREE.SRGBColorSpace
+    return [a, r]
+  }, [albedo, roughness])
 
   return (
-    <Plane
-      args={[GRID_SIZE_M, GRID_SIZE_M, 64, 64]}
+    <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[GRID_SIZE_M / 2, 0, GRID_SIZE_M / 2]}
+      position={[CENTER_X, -0.02, CENTER_Z]}
       receiveShadow
     >
+      <planeGeometry args={[SURROUND_SIZE_M, SURROUND_SIZE_M, 1, 1]} />
       <meshStandardMaterial
-        map={albedo}
-        roughnessMap={roughness}
-        // Warm, darkened tint pushes the ground toward a scorched dusk read
-        color="#9b8d76"
+        map={grassAlbedo}
+        roughnessMap={grassRough}
+        // Push the warm aerial photo toward a lush daytime grass green
+        color="#69873f"
         roughness={1.0}
         metalness={0.0}
       />
-    </Plane>
+    </mesh>
+  )
+}
+
+/**
+ * The playable disaster/work zone (0–250 in x & z). Same ground, sitting just
+ * a hair above the grass so it z-fights nothing — a touch browner/worn to read
+ * as a trampled, scorched relief zone. Soft-edged so it blends into the grass.
+ */
+function SimCore() {
+  const [albedo, roughness] = useTexture([
+    '/textures/ground_albedo.jpg',
+    '/textures/ground_roughness.jpg',
+  ])
+
+  const [coreAlbedo, coreRough] = useMemo(() => {
+    const a = albedo.clone()
+    const r = roughness.clone()
+    for (const t of [a, r]) {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping
+      t.repeat.set(14, 14)
+      t.anisotropy = 8
+      t.needsUpdate = true
+    }
+    a.colorSpace = THREE.SRGBColorSpace
+    return [a, r]
+  }, [albedo, roughness])
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[CENTER_X, 0.0, CENTER_Z]}
+      receiveShadow
+    >
+      <planeGeometry args={[GRID_SIZE_M, GRID_SIZE_M, 32, 32]} />
+      <meshStandardMaterial
+        map={coreAlbedo}
+        roughnessMap={coreRough}
+        // Worn, slightly scorched earth — distinct from the lush surround grass
+        color="#8a7d5f"
+        roughness={1.0}
+        metalness={0.0}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
+      />
+    </mesh>
   )
 }
 
