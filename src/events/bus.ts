@@ -8,6 +8,7 @@ type EventMap = {
   'chaos:new_families': void
   'demo:start': void
   'demo:camera': { preset: 'wide' | 'buildsite' | 'rescue' | 'debrief' }
+  'mission:reset': void
 }
 
 type Listener<T> = T extends void ? () => void : (payload: T) => void

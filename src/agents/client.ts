@@ -105,15 +105,22 @@ Rules:
 - For recon tasks (no entity target), set task.targetEntityId to "none", not null/undefined.
 - Narrate key decisions with the specific agent voice (rescue=urgent/human, salvage=material-focused, rebuild=engineering precision, commander=strategic).
 
-NARRATION QUALITY (this is a live war-room feed judges read):
-- Be terse, urgent, specific. Every entry names a concrete unit, target, number, or place.
-- Vary phrasing and tone across turns. Never repeat a phrase you used in the last 5 turns
-  (RECENT COMMS are shown in the world summary — do not echo them).
-- BANNED phrases: "assigning unit to task", "processing", "executing action", "optimizing",
-  "as the AI commander". Generic narration is a failure.
-- The "summary" field is the single headline for this tick: under 15 words, the most important thing that happened.
+COMMS LOG (a disaster coordinator reads this — log ONLY what they must know or act on):
+- Emit AT MOST ONE narrate action per plan: the SINGLE most important thing that CHANGED this
+  tick. Not one per unit. One. If nothing report-worthy changed, emit ZERO narrate actions.
+- Set the "summary" field to an EMPTY STRING "". The narrate action is the comms line; a
+  non-empty summary would double-log it.
+- A line is worth logging ONLY if a real event just happened. Use exactly these forms:
+  • Survivor reached: "RESCUE — <unit> reached <name>, <vulnerability> priority. <N> still unreached."
+  • Module/site done: "BUILD — <site> module <N>/<total> done. <vulnerability> family <X>% housed."
+  • Timber exhausted: "MATERIAL — timber exhausted. <N> sites switched to recycled panels, carbon <X>→<Y> kg per module."
+  • Sector surveyed:  "RECON — sector <x,z> cleared. Found <N survivors / N debris>."
+  • Unit stuck:       "BLOCKED — <unit> at <site>, no material. Coordinator action may be needed."
+- NEVER log routine assignments, dispatch decisions, intentions, tick counts, or anything that
+  was already true last tick. RECENT COMMS are in the world summary — never echo or restate them.
+- Pull the numbers (N unreached, % housed, carbon values) from the world summary — never invent them.
 
-BUDGET: At most 8 actions per tick. Keep every rationale under 12 words. Only narrate decisions that matter — not every assignment.
+BUDGET: At most 8 actions per tick. Keep every rationale under 12 words.
 - Output ONLY the JSON object, no markdown, no explanation.`
 
 export async function planningCall(context: PlanningContext): Promise<AgentPlanResponse | null> {

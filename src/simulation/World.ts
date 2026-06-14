@@ -1,4 +1,4 @@
-import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEntity, DebrisEntity, Task, AgentType, Vec3, BuildSite } from '@/types'
+import type { WorldState, Entity, GridCell, AgentAction, RobotEntity, PersonEntity, DebrisEntity, Task, AgentType, Vec3, BuildSite, VulnerabilityLevel } from '@/types'
 import { findPath } from './pathfinding'
 import { spreadHazards } from './hazards'
 import { decayPersonUrgency, updateFogOfWar } from './entities'
@@ -18,10 +18,44 @@ const CORE_OFFSET_Z = CORE_MIN_Z  // 125
 // Run the fire/flood CA every N ticks (deltaS scaled to preserve spread rate).
 const HAZARD_EVERY = 3
 
-export function createInitialWorld(): WorldState {
+// First-responder tuning (Fix 2).
+const FIRE_SUPPRESSION_PER_TICK = 0.2   // intensity knocked down per tick while extinguishing
+const DAMAGED_FIRE_START = 0.4          // starting fire on a damaged home — below the 0.5 "impassable / unit-damage" line so responders can reach & survive it
+
+// Everything below the fleet is driven by the four mission-setup counts:
+//   houseCount     — homes to rebuild (each = a displaced family + its build site)
+//   damagedCount   — how many of those homes start ON FIRE (responders extinguish first)
+//   droneCount     — recon drones
+//   responderCount — first-responder units (extinguish → rebuild → house the family)
+// App.tsx calls createInitialWorld(houses, drones, teams); damagedCount defaults to
+// houseCount (the setup slider is literally "Damaged houses") but is honoured if passed.
+export function createInitialWorld(
+  houseCount = 6,
+  droneCount = 2,
+  responderCount = 3,
+  damagedCount = houseCount,
+): WorldState {
   const { zones, layout } = buildSuburb()
-  const grid = buildGrid(zones)
-  const entities = buildInitialEntities()
+  const houses = houseLayout(houseCount, damagedCount)
+
+  // Spread the homes evenly across the core, then set fire on the damaged ones.
+  let grid = buildGrid(zones)
+  grid = igniteDamagedHouses(grid, houses)
+
+  const entities = buildInitialEntities(houseCount, damagedCount, droneCount, responderCount)
+
+  // One build site per home, co-located with its family and pre-linked so a single
+  // responder can drive the full extinguish → rebuild → house sequence (Fix 2).
+  const buildSites: BuildSite[] = houses.map((h, i) => offsetSite({
+    id: `site-${i + 1}`,
+    position: h.position,
+    modulesRequired: 4,
+    modulesComplete: 0,
+    status: 'active' as const,
+    assignedFamilyId: h.famId,
+    materialChoice: 'imported_timber' as const,
+    kgCo2eSpent: 0,
+  } satisfies BuildSite))
 
   return {
     tick: 0,
@@ -33,16 +67,7 @@ export function createInitialWorld(): WorldState {
     gridHeight: GRID_H,
     cellSizeM: CELL_SIZE_M,
     suburb: layout,
-    // 2×3 neighbourhood grid inside the central disaster core (authored in the
-    // legacy 0–250 frame, shifted +125 into the core via offsetSite()).
-    buildSites: ([
-      { id: 'site-1', position: { x: 145, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-2', position: { x: 165, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-3', position: { x: 185, y: 0, z: 58 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-4', position: { x: 145, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-5', position: { x: 165, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-      { id: 'site-6', position: { x: 185, y: 0, z: 90 }, modulesRequired: 4, modulesComplete: 0, status: 'planned', assignedFamilyId: null, materialChoice: 'imported_timber', kgCo2eSpent: 0 },
-    ] satisfies BuildSite[]).map(offsetSite),
+    buildSites,
     inventory: {
       importedTimber: 8000,
       importedPanels: 2000,
@@ -53,7 +78,7 @@ export function createInitialWorld(): WorldState {
     },
     energy: { totalKwh: 500, usedKwh: 0, solarGeneratedKwh: 0 },
     carbon: { avoidedKgCo2e: 0, spentKgCo2e: 0, baselineKgCo2e: 45000 },
-    score: { familiesHoused: 0, familiesTotal: 6, vulnerableHousedPct: 0, peopleRescued: 0, peopleTotal: 8, wasteDivertedKg: 0 },
+    score: { familiesHoused: 0, familiesTotal: houseCount, vulnerableHousedPct: 0, peopleRescued: 0, peopleTotal: 0, wasteDivertedKg: 0 },
     commsLog: [],
     activeEvents: [],
     windDirection: { dx: 1, dy: -1 },
@@ -76,6 +101,7 @@ export class World {
     }
 
     this._advanceUnits(deltaS)
+    this._advanceResponders(deltaS)     // Fix 2: deterministic first-responder loop (extinguish → rebuild → house)
     // Throttle the hazard cellular automaton: on the 100×100 grid scanning every
     // tick is wasteful (fire/flood only live in the core). Run it every
     // HAZARD_EVERY ticks with a scaled deltaS so the spread RATE is unchanged.
@@ -156,7 +182,9 @@ export class World {
   private _advanceUnits(deltaS: number): void {
     const arrivals: RobotEntity[] = []
     const entities = this.state.entities.map(e => {
-      if (e.kind !== 'robot' || e.status !== 'moving') return e
+      // Responders are driven entirely by _advanceResponders (their own movement + work
+      // loop), so the generic task/arrival mover must never touch them.
+      if (e.kind !== 'robot' || e.status !== 'moving' || (e as RobotEntity).type === 'restoration_unit') return e
       const path: Vec3[] | undefined = (e as any)._path
       // An empty/spent path on a moving unit means it has reached its target → arrival.
       // (null paths never reach here — they're rejected at assign time — so this is always genuine.)
@@ -186,6 +214,187 @@ export class World {
     for (const r of arrivals) {
       if (r.task) this.onTaskArrival(r, r.task)
       this._setUnitIdle(r.id)
+    }
+  }
+
+  // ── First-responder loop (Fix 2) ────────────────────────────────────────────
+  // Each responder (restoration_unit) autonomously runs the sequence for one home:
+  //   a. travel to its assigned house
+  //   b. if the house is on fire, knock fireIntensity down 0.2/tick until it hits 0
+  //   c. once the fire is out (or there never was one), place one module/tick
+  //   d. at modulesComplete === modulesRequired the family is housed and the responder idles
+  // Then it picks the next unfinished home. Houses are claimed 1:1 so two responders
+  // never converge on the same build site.
+  private _advanceResponders(deltaS: number): void {
+    const responders = this.state.entities.filter(
+      e => e.kind === 'robot' && (e as RobotEntity).type === 'restoration_unit'
+    ) as RobotEntity[]
+    if (responders.length === 0) return
+
+    // Homes already being serviced this round (skip failed units so a dead responder
+    // doesn't lock its house forever — another responder can re-claim it).
+    const claimed = new Set<string>(
+      responders
+        .filter(r => r.status !== 'failed')
+        .map(r => (r as any)._houseSiteId as string | undefined)
+        .filter((id): id is string => !!id)
+    )
+
+    for (const r of responders) {
+      if (r.status === 'failed') continue
+
+      let siteId = (r as any)._houseSiteId as string | undefined
+      let site = siteId ? this.state.buildSites.find(s => s.id === siteId) : undefined
+
+      // Finished or vanished assignment → release and fall through to re-dispatch.
+      if (site && site.status === 'complete') {
+        if (siteId) claimed.delete(siteId)
+        this._releaseResponder(r.id)
+        site = undefined
+      }
+
+      // (a-dispatch) Idle / unassigned → claim the nearest reachable unfinished home.
+      if (!site) {
+        const next = this._nearestOpenHouse(r, claimed)
+        if (!next) continue
+        const path = findPath(this.state.grid, r.position, next.position, r.clearanceRadius)
+        if (path === null) continue
+        claimed.add(next.id)
+        const moving: any = { ...r, status: 'moving' as const }
+        moving._houseSiteId = next.id
+        moving._path = path
+        this._updateEntity(moving)
+        continue
+      }
+
+      // (a) En route → step toward the house; arrival flips the unit to 'working'.
+      if (r.status === 'moving') {
+        this._stepResponder(r, deltaS, site)
+        continue
+      }
+
+      // (b/c/d) On site → extinguish, then rebuild.
+      if (r.status === 'working') {
+        this._serviceHouse(r, site)
+      }
+    }
+  }
+
+  // Move a responder one tick along its path (mirrors _advanceUnits' kinematics).
+  private _stepResponder(r: RobotEntity, deltaS: number, site: BuildSite): void {
+    const path: Vec3[] = ((r as any)._path as Vec3[]) ?? []
+    if (path.length === 0) {            // already there → start working, discover the family
+      const arrived: any = { ...r, status: 'working' as const }
+      arrived._path = []
+      this._updateEntity(arrived)
+      this._discoverFamily(site.assignedFamilyId)
+      return
+    }
+    const target = path[0]
+    const dx = target.x - r.position.x
+    const dz = target.z - r.position.z
+    const dist = Math.sqrt(dx * dx + dz * dz)
+    const stepLen = r.speed * deltaS * this.state.cellSizeM
+
+    if (dist <= stepLen) {
+      const remaining = path.slice(1)
+      const moved: any = { ...r, position: { x: target.x, y: r.position.y, z: target.z }, status: remaining.length === 0 ? 'working' as const : 'moving' as const }
+      moved._path = remaining
+      this._updateEntity(moved)
+      if (remaining.length === 0) this._discoverFamily(site.assignedFamilyId)
+    } else {
+      const moved: any = { ...r, position: { x: r.position.x + (dx / dist) * stepLen, y: r.position.y, z: r.position.z + (dz / dist) * stepLen } }
+      moved._path = path
+      this._updateEntity(moved)
+    }
+  }
+
+  // On-site work for one tick: firefight while the cell burns, otherwise place a module.
+  private _serviceHouse(r: RobotEntity, site: BuildSite): void {
+    const gx = Math.round(site.position.x / this.state.cellSizeM)
+    const gy = Math.round(site.position.z / this.state.cellSizeM)
+    const cell = this.state.grid[gy]?.[gx]
+    const fire = cell?.fireIntensity ?? 0
+
+    // (b) House on fire → knock it down 0.2/tick until out; no building yet.
+    if (cell && fire > 0) {
+      const next = Math.max(0, fire - FIRE_SUPPRESSION_PER_TICK)
+      const grid = this.state.grid.map((row, y) =>
+        y !== gy ? row : row.map((c, x) =>
+          x !== gx ? c : { ...c, fireIntensity: next, fuelLoad: next === 0 ? 0 : c.fuelLoad }
+        )
+      )
+      this.state = { ...this.state, grid }
+      if (next === 0) this._narrate('rescue', `${r.id} extinguished the fire at ${site.id} — starting rebuild.`)
+      return
+    }
+
+    // (c) Fire is out (or there never was one) → place one module this tick.
+    const modulesComplete = Math.min(site.modulesRequired, site.modulesComplete + 1)
+    const complete = modulesComplete >= site.modulesRequired
+    this.state = {
+      ...this.state,
+      buildSites: this.state.buildSites.map(s =>
+        s.id === site.id ? { ...s, modulesComplete, status: complete ? 'complete' as const : 'active' as const } : s
+      ),
+    }
+    // Draw the module from shared stock so timber runs down → triggers the recycled-panel switch.
+    this.state = deductMaterial(this.state, site.materialChoice, 1)
+
+    if (complete) {
+      // (d) Family housed; responder released to pick up the next home.
+      if (site.assignedFamilyId) {
+        this.state = {
+          ...this.state,
+          entities: this.state.entities.map(e =>
+            e.id === site.assignedFamilyId && e.kind === 'person'
+              ? { ...e, status: 'housed' as const, housedAtTick: this.state.tick }
+              : e
+          ),
+        }
+      }
+      this._narrate('rebuild', `${site.id} complete — ${site.assignedFamilyId ?? 'family'} housed (${site.materialChoice.replace(/_/g, ' ')}).`)
+      this._releaseResponder(r.id)
+    } else {
+      this._narrate('rebuild', `${site.id}: module ${modulesComplete}/${site.modulesRequired} placed.`)
+    }
+  }
+
+  // Nearest unfinished, unclaimed home this responder can actually path to.
+  private _nearestOpenHouse(r: RobotEntity, claimed: Set<string>): BuildSite | null {
+    const open = this.state.buildSites
+      .filter(s => s.status !== 'complete' && !claimed.has(s.id))
+      .sort((a, b) => dist2(a.position, r.position) - dist2(b.position, r.position))
+    for (const s of open) {
+      if (findPath(this.state.grid, r.position, s.position, r.clearanceRadius) !== null) return s
+    }
+    return null
+  }
+
+  // Flip a still-undiscovered family to discovered when its responder reaches the house.
+  private _discoverFamily(famId: string | null): void {
+    if (!famId) return
+    this.state = {
+      ...this.state,
+      entities: this.state.entities.map(e =>
+        e.id === famId && e.kind === 'person' && e.status === 'undiscovered'
+          ? { ...e, status: 'discovered' as const, discoveredAtTick: this.state.tick }
+          : e
+      ),
+    }
+  }
+
+  // Return a responder to idle and clear its assignment/path bookkeeping.
+  private _releaseResponder(id: string): void {
+    this.state = {
+      ...this.state,
+      entities: this.state.entities.map(e => {
+        if (e.id !== id || e.kind !== 'robot') return e
+        const n: any = { ...e, status: 'idle' as const, task: null }
+        n._path = undefined
+        n._houseSiteId = undefined
+        return n
+      }),
     }
   }
 
@@ -364,41 +573,115 @@ function offsetSite<T extends { position: Vec3 }>(s: T): T {
   return { ...s, position: offsetPos(s.position) }
 }
 
-function buildInitialEntities(): Entity[] {
-  // Robots staged in two neat rows at the south edge, visible from opening camera angle
+// Squared XZ distance (cheap ordering metric).
+function dist2(a: Vec3, b: Vec3): number {
+  const dx = a.x - b.x, dz = a.z - b.z
+  return dx * dx + dz * dz
+}
+
+// One home in the legacy (pre-offset) 0–250 m frame.
+interface HouseSpec {
+  famId: string
+  position: Vec3
+  vulnerability: VulnerabilityLevel
+  membersCount: number
+  damaged: boolean
+}
+
+// Lay out `houseCount` homes on an even grid across the core's discoverable interior,
+// marking `damagedCount` of them (spread out, not clustered) as on-fire. Deterministic —
+// both buildInitialEntities() and createInitialWorld() call this and must agree on positions.
+function houseLayout(houseCount: number, damagedCount: number): HouseSpec[] {
+  const n = Math.max(0, Math.floor(houseCount))
+  const dmg = Math.max(0, Math.min(n, Math.floor(damagedCount)))
+  const vulns: VulnerabilityLevel[] = ['high', 'medium', 'low']
+
+  // Evenly distribute the damaged indices across [0, n) so fires aren't bunched.
+  const damagedSet = new Set<number>()
+  for (let k = 0; k < dmg; k++) damagedSet.add(Math.floor((k * n) / Math.max(1, dmg)))
+
+  // Even square-ish grid inside a band that avoids the pre-set fire core (legacy z < 50)
+  // and the eastern flood zone (legacy x > 190), and stays north of the fleet spawn strip.
+  const cols = Math.max(1, Math.ceil(Math.sqrt(n)))
+  const rows = Math.max(1, Math.ceil(n / cols))
+  const X0 = 40, X1 = 180, Z0 = 55, Z1 = 185
+
+  return Array.from({ length: n }, (_, i) => {
+    const gx = i % cols
+    const gy = Math.floor(i / cols)
+    const x = cols === 1 ? (X0 + X1) / 2 : X0 + (gx / (cols - 1)) * (X1 - X0)
+    const z = rows === 1 ? (Z0 + Z1) / 2 : Z0 + (gy / (rows - 1)) * (Z1 - Z0)
+    return {
+      famId: `fam-${i + 1}`,
+      position: { x, y: 0, z },
+      vulnerability: vulns[i % vulns.length],
+      membersCount: 2 + (i % 4),
+      damaged: damagedSet.has(i),
+    } satisfies HouseSpec
+  })
+}
+
+// Set fire on the grid cells under the damaged homes. Positions are legacy-frame, so
+// shift into the core before indexing. Returns a fresh grid.
+function igniteDamagedHouses(grid: GridCell[][], houses: HouseSpec[]): GridCell[][] {
+  const next = grid.map(row => row.map(c => ({ ...c })))
+  for (const h of houses) {
+    if (!h.damaged) continue
+    const gx = Math.round((h.position.x + CORE_OFFSET_X) / CELL_SIZE_M)
+    const gy = Math.round((h.position.z + CORE_OFFSET_Z) / CELL_SIZE_M)
+    const cell = next[gy]?.[gx]
+    if (cell) { cell.fireIntensity = DAMAGED_FIRE_START; cell.fuelLoad = 0.8 }
+  }
+  return next
+}
+
+// `droneCount` recon drones staged at the south edge (legacy frame; offset later).
+function makeDrones(n: number): RobotEntity[] {
+  return Array.from({ length: Math.max(0, Math.floor(n)) }, (_, i) => ({
+    kind: 'robot', id: `drone-${i + 1}`, type: 'recon_drone',
+    position: { x: 130 + (i % 8) * 11, y: 3, z: 213 - Math.floor(i / 8) * 7 }, status: 'idle', task: null,
+    batteryLevel: 1, speed: 4, clearanceRadius: 0,
+  }))
+}
+
+// `responderCount` first-responder units (restoration_unit) staged at the south edge.
+// They are driven exclusively by _advanceResponders — never by the LLM/fallback.
+function makeResponders(n: number): RobotEntity[] {
+  return Array.from({ length: Math.max(0, Math.floor(n)) }, (_, i) => ({
+    kind: 'robot', id: `responder-${i + 1}`, type: 'restoration_unit',
+    position: { x: 130 + (i % 8) * 8, y: 0, z: 222 + Math.floor(i / 8) * 7 }, status: 'idle', task: null,
+    batteryLevel: 1, speed: 1.3, clearanceRadius: 1,
+  }))
+}
+
+// Parameterised initial roster — spawns ONLY what the four setup counts ask for:
+// droneCount drones, responderCount responders, and houseCount displaced families
+// (damagedCount of them on fire). No hardcoded spawn numbers.
+function buildInitialEntities(
+  houseCount = 6,
+  damagedCount = houseCount,
+  droneCount = 2,
+  responderCount = 3,
+): Entity[] {
   const robots: RobotEntity[] = [
-    { kind: 'robot', id: 'drone-1',  type: 'recon_drone',   position: {x:138,y:3,z:215}, status: 'idle', task: null, batteryLevel: 1, speed: 4,   clearanceRadius: 0 },
-    { kind: 'robot', id: 'drone-2',  type: 'recon_drone',   position: {x:150,y:3,z:215}, status: 'idle', task: null, batteryLevel: 1, speed: 4,   clearanceRadius: 0 },
-    { kind: 'robot', id: 'rescue-1', type: 'rescue_unit',   position: {x:138,y:0,z:222}, status: 'idle', task: null, batteryLevel: 1, speed: 1.5, clearanceRadius: 1 },
-    { kind: 'robot', id: 'rescue-2', type: 'rescue_unit',   position: {x:148,y:0,z:222}, status: 'idle', task: null, batteryLevel: 1, speed: 1.5, clearanceRadius: 1 },
-    { kind: 'robot', id: 'medic-1',  type: 'medic',         position: {x:158,y:0,z:222}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
-    { kind: 'robot', id: 'sort-1',   type: 'sorting_robot', position: {x:138,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 1,   clearanceRadius: 1 },
-    { kind: 'robot', id: 'haul-1',   type: 'hauler',        position: {x:148,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 1.2, clearanceRadius: 1 },
-    { kind: 'robot', id: 'build-1',  type: 'builder_robot', position: {x:158,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
-    { kind: 'robot', id: 'build-2',  type: 'builder_robot', position: {x:168,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
-    { kind: 'robot', id: 'build-3',  type: 'builder_robot', position: {x:178,y:0,z:229}, status: 'idle', task: null, batteryLevel: 1, speed: 0.8, clearanceRadius: 1 },
+    ...makeDrones(droneCount),
+    ...makeResponders(responderCount),
   ]
 
-  const people: PersonEntity[] = [
-    { kind: 'person', id: 'fam-1', subtype: 'displaced_family', position: {x:40,y:0,z:60},  status: 'undiscovered', vulnerability: 'high',   urgencyScore: 20, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 4 },
-    { kind: 'person', id: 'fam-2', subtype: 'displaced_family', position: {x:80,y:0,z:40},  status: 'undiscovered', vulnerability: 'high',   urgencyScore: 25, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 5 },
-    { kind: 'person', id: 'fam-3', subtype: 'displaced_family', position: {x:120,y:0,z:80}, status: 'undiscovered', vulnerability: 'medium', urgencyScore: 10, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 3 },
-    { kind: 'person', id: 'fam-4', subtype: 'displaced_family', position: {x:60,y:0,z:120}, status: 'undiscovered', vulnerability: 'low',    urgencyScore: 5,  discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 2 },
-    { kind: 'person', id: 'fam-5', subtype: 'displaced_family', position: {x:100,y:0,z:100},status: 'undiscovered', vulnerability: 'medium', urgencyScore: 15, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 4 },
-    { kind: 'person', id: 'fam-6', subtype: 'displaced_family', position: {x:140,y:0,z:60}, status: 'undiscovered', vulnerability: 'high',   urgencyScore: 30, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 5 },
-    { kind: 'person', id: 'surv-1', subtype: 'survivor',        position: {x:30,y:0,z:30},  status: 'undiscovered', vulnerability: 'high',   urgencyScore: 50, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 1 },
-    { kind: 'person', id: 'surv-2', subtype: 'survivor',        position: {x:100,y:0,z:50}, status: 'undiscovered', vulnerability: 'medium', urgencyScore: 30, discoveredAtTick: null, rescuedAtTick: null, housedAtTick: null, membersCount: 1 },
-  ]
-
-  const debris: DebrisEntity[] = [
-    { kind: 'debris', id: 'deb-1', position: {x:50,y:0,z:80},  debrisType: 'timber',           massKg: 2000, kgCo2eIfSalvaged: 2400, salvaged: false },
-    { kind: 'debris', id: 'deb-2', position: {x:70,y:0,z:60},  debrisType: 'steel',            massKg: 1500, kgCo2eIfSalvaged: 2800, salvaged: false },
-    { kind: 'debris', id: 'deb-3', position: {x:90,y:0,z:100}, debrisType: 'aggregate',        massKg: 3000, kgCo2eIfSalvaged: 900,  salvaged: false },
-    { kind: 'debris', id: 'deb-4', position: {x:40,y:0,z:110}, debrisType: 'recycled_plastic', massKg: 500,  kgCo2eIfSalvaged: 600,  salvaged: false },
-    { kind: 'debris', id: 'deb-5', position: {x:110,y:0,z:70}, debrisType: 'timber',           massKg: 1800, kgCo2eIfSalvaged: 2160, salvaged: false },
-    { kind: 'debris', id: 'deb-6', position: {x:60,y:0,z:140}, debrisType: 'contaminated',     massKg: 800,  kgCo2eIfSalvaged: 0,    salvaged: false },
-  ]
+  const families: PersonEntity[] = houseLayout(houseCount, damagedCount).map(h => ({
+    kind: 'person',
+    id: h.famId,
+    subtype: 'displaced_family',
+    position: h.position,
+    status: 'undiscovered',
+    vulnerability: h.vulnerability,
+    urgencyScore: 10,
+    discoveredAtTick: null,
+    rescuedAtTick: null,
+    housedAtTick: null,
+    membersCount: h.membersCount,
+  } satisfies PersonEntity))
 
   // Shift every legacy position into the centered disaster core.
-  return [...robots, ...people, ...debris].map(e => ({ ...e, position: offsetPos(e.position) }))
+  return [...robots, ...families].map(e => ({ ...e, position: offsetPos(e.position) }))
 }

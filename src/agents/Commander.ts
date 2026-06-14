@@ -56,8 +56,111 @@ export class Commander {
   }
 
   async generateDebrief(finalState: WorldState): Promise<string> {
-    const summary = serializeWorldState(finalState)
-    return (await debriefCall(summary)) ?? 'Mission complete — families housed and embodied carbon held well below the conventional baseline.'
+    const m = this.computeFleetMetrics(finalState)
+    const r = this.recommendation(m)
+
+    const fleetBlock = [
+      'FLEET EFFICIENCY',
+      `totalDronesDeployed=${m.totalDronesDeployed}`,
+      `totalTeamsDeployed=${m.totalTeamsDeployed}`,
+      `housesTotal=${m.housesTotal}`,
+      `housesCompleted=${m.housesCompleted}`,
+      `survivorsTotal=${m.survivorsTotal}`,
+      `survivorsRescued=${m.survivorsRescued}`,
+      `totalCompletionTimeSeconds=${m.totalCompletionTimeSeconds}`,
+      `sitesWithMultipleBuilders=${m.sitesWithMultipleBuilders}`,
+      `averageTeamIdlePercent=${m.averageTeamIdlePercent}`,
+    ].join('\n')
+
+    const instructions =
+      "Write a 3-sentence coordinator after-action assessment in plain prose. " +
+      "It MUST follow this structure and always include specific numbers: " +
+      "'You deployed X teams for Y houses. [efficient / too many / too few]. " +
+      "Deploy N teams next time. Time could be cut by Z% with more drones.' " +
+      "Never be vague; always give a concrete number to change. " +
+      `Use the recommended values: recommendedTeams=${r.recommendedTeams}, ` +
+      `droneTimeCut=${r.droneTimeCutPercent}%, judgment=${r.judgment}.`
+
+    const userContent = `${serializeWorldState(finalState)}\n\n${fleetBlock}\n\n${instructions}`
+
+    const text = await debriefCall(userContent)
+    // deterministic specific-numbers fallback when the LLM is off/fails — never a vague string.
+    return text ?? this.assessmentText(m, r)
+  }
+
+  private computeFleetMetrics(state: WorldState) {
+    const robots = state.entities.filter((e) => e.kind === 'robot')
+    const persons = state.entities.filter((e) => e.kind === 'person')
+
+    const totalDronesDeployed = robots.filter((e) => (e as any).type === 'recon_drone').length
+    const builders = robots.filter((e) => (e as any).type === 'builder_robot')
+    const totalTeamsDeployed = builders.length
+
+    const housesTotal = state.buildSites.length
+    const housesCompleted = state.buildSites.filter((s) => s.status === 'complete').length
+
+    const survivors = persons.filter((e) => (e as any).subtype === 'survivor')
+    const survivorsTotal = survivors.length
+    const survivorsRescued = survivors.filter((e) => {
+      const status = (e as any).status
+      return status === 'rescued' || status === 'housed'
+    }).length
+
+    const totalCompletionTimeSeconds = Math.round(state.elapsedSeconds)
+
+    // Snapshot congestion: distinct build-site ids targeted by >1 active building builder.
+    const builderTargetCounts = new Map<string, number>()
+    for (const b of builders) {
+      const task = (b as any).task
+      if ((b as any).status !== 'idle' && task?.type === 'build_module' && task.targetEntityId) {
+        builderTargetCounts.set(task.targetEntityId, (builderTargetCounts.get(task.targetEntityId) ?? 0) + 1)
+      }
+    }
+    let sitesWithMultipleBuilders = 0
+    for (const count of builderTargetCounts.values()) {
+      if (count > 1) sitesWithMultipleBuilders++
+    }
+
+    // Estimate: per-tick idle isn't tracked, so over-capacity is proxied by excess teams.
+    const averageTeamIdlePercent =
+      totalTeamsDeployed > housesTotal
+        ? Math.min(95, Math.round(((totalTeamsDeployed - housesTotal) / totalTeamsDeployed) * 100))
+        : 0
+
+    return {
+      totalDronesDeployed,
+      totalTeamsDeployed,
+      housesTotal,
+      housesCompleted,
+      survivorsTotal,
+      survivorsRescued,
+      totalCompletionTimeSeconds,
+      sitesWithMultipleBuilders,
+      averageTeamIdlePercent,
+    }
+  }
+
+  private recommendation(m: ReturnType<Commander['computeFleetMetrics']>) {
+    const recommendedTeams = Math.max(2, Math.min(m.housesTotal, Math.round(m.housesTotal / 1.5)))
+    const judgment =
+      m.totalTeamsDeployed > recommendedTeams
+        ? 'too many teams'
+        : m.totalTeamsDeployed < recommendedTeams
+          ? 'too few teams'
+          : 'an efficient deployment'
+    const idealDrones = Math.max(2, Math.ceil(m.housesTotal / 3))
+    const droneTimeCutPercent = Math.max(
+      0,
+      Math.min(50, Math.round(((idealDrones - m.totalDronesDeployed) / idealDrones) * 35)),
+    )
+    return { recommendedTeams, judgment, droneTimeCutPercent }
+  }
+
+  private assessmentText(
+    m: ReturnType<Commander['computeFleetMetrics']>,
+    r: ReturnType<Commander['recommendation']>,
+  ): string {
+    return `You deployed ${m.totalTeamsDeployed} teams for ${m.housesTotal} houses — ${r.judgment}. Housed ${m.housesCompleted}/${m.housesTotal}, rescued ${m.survivorsRescued}/${m.survivorsTotal}, in ${m.totalCompletionTimeSeconds}s. Deploy ${r.recommendedTeams} teams next time. Time could be cut by ${r.droneTimeCutPercent}% with more drones.`
   }
 
   // Returns true only when a NEW crisis appears: a person crossing the urgency

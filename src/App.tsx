@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Scene } from './renderer/Scene'
 import { HUD } from './hud/HUD'
+import { SetupScreen } from './hud/SetupScreen'
 import { World, createInitialWorld } from './simulation/World'
 import { useWorldStore } from './store/worldStore'
 import { commander } from './agents/Commander'
@@ -24,7 +25,11 @@ function recordReasoning(plan: AgentPlanResponse) {
   for (const action of plan.actions) {
     switch (action.type) {
       case 'assign_task':
-        push('dispatch', TASK_LABEL[action.task.type] ?? 'DISPATCH', action.rationale)
+        // Recon + haul re-issue every tick as drones/haulers cycle, drowning the feed. Keep it
+        // to consequential dispatches (rescue / salvage / build) so each line is worth reading.
+        if (action.task.type !== 'recon' && action.task.type !== 'haul_material') {
+          push('dispatch', TASK_LABEL[action.task.type] ?? 'DISPATCH', action.rationale)
+        }
         break
       case 'allocate_material':
         push('material', 'MATERIAL', `${action.materialChoice.replace(/_/g, ' ')} — ${action.rationale}`)
@@ -43,7 +48,19 @@ export default function App() {
   const worldRef = useRef<World | null>(null)
   const lastPlanRef = useRef(0)
   const debriefDoneRef = useRef(false)
+  const [deployed, setDeployed] = useState(false)
   const { setWorld, setRunning, isRunning } = useWorldStore()
+
+  // Deploy a fresh mission from the setup screen → start the sim.
+  function deploy(houses: number, drones: number, teams: number) {
+    const world = new World(createInitialWorld(houses, drones, teams))
+    worldRef.current = world
+    debriefDoneRef.current = false
+    useWorldStore.getState().setDebrief('')
+    setWorld({ ...world.state })
+    setDeployed(true)
+    setRunning(true)
+  }
 
   // Initialize world on mount
   useEffect(() => {
@@ -75,6 +92,20 @@ export default function App() {
       }),
     ]
     return () => offs.forEach(off => off())
+  }, [])
+
+  // Debrief acknowledged → tear down the run and return to the setup screen
+  // with a fresh default backdrop world behind it.
+  useEffect(() => {
+    const off = bus.on('mission:reset', () => {
+      setRunning(false)
+      setDeployed(false)
+      const w = new World(createInitialWorld())
+      worldRef.current = w
+      debriefDoneRef.current = false
+      setWorld({ ...w.state })
+    })
+    return () => off()
   }, [])
 
   // Main sim + AI loop
@@ -123,6 +154,7 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#000' }}>
       <Scene />
       <HUD />
+      {!deployed && <SetupScreen onDeploy={deploy} />}
     </div>
   )
 }

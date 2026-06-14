@@ -1,27 +1,17 @@
 import { useState } from 'react'
 import { useWorldStore } from '@/store/worldStore'
+import { bus } from '@/events/bus'
 import styles from './hud.module.css'
 
 export function Debrief({ force }: { force?: boolean }) {
   void force // dev-mode signal only; presentation is identical
   const [open, setOpen] = useState(true)
   const world = useWorldStore((s) => s.world)
-
-  if (!open) return null
-
   // ── Headline: AI after-action summary (store.debrief) ▸ latest commander line ▸ canned prose ──
   // Prefer the LLM-written debrief once it lands; never show blank while it loads.
   const debrief = useWorldStore((s) => s.debrief)
-  const commsLog = world?.commsLog ?? []
-  let line =
-    'Housed all vulnerable families on time while cutting rebuild emissions by 81% versus a conventional build.'
-  for (let i = commsLog.length - 1; i >= 0; i--) {
-    if (commsLog[i].agent === 'commander') {
-      line = commsLog[i].message
-      break
-    }
-  }
-  if (debrief) line = debrief
+
+  if (!open) return null
 
   // ── Bar values (compute from world if present, else fallbacks) ───────────
   const score = world?.score
@@ -34,6 +24,28 @@ export function Debrief({ force }: { force?: boolean }) {
   const baselineKg = carbon?.baselineKgCo2e ?? 45000
   const avoidedKg = carbon?.avoidedKgCo2e ?? 36500
   const carbonPct = baselineKg > 0 ? Math.round((avoidedKg / baselineKg) * 100) : 0
+
+  // ── Headline: AI after-action summary (store.debrief) is authoritative ────
+  // Priority: real LLM debrief ▸ latest commander comms line ▸ world-derived
+  // neutral line ▸ "compiling" placeholder. Never fabricate numbers.
+  const commsLog = world?.commsLog ?? []
+
+  // Neutral, real-data fallback: computed from world.score when present,
+  // otherwise a plain placeholder while the assessment loads.
+  let line = score
+    ? `Families housed ${housed}/${total}; ${carbonPct}% carbon avoided versus a conventional rebuild.`
+    : 'Compiling after-action assessment…'
+
+  // Optional commander comms line sits BELOW the real-debrief priority.
+  for (let i = commsLog.length - 1; i >= 0; i--) {
+    if (commsLog[i].agent === 'commander') {
+      line = commsLog[i].message
+      break
+    }
+  }
+
+  // store.debrief is the authoritative assessment text — it wins verbatim.
+  if (typeof debrief === 'string' && debrief.trim() !== '') line = debrief
 
   const wasteDivertedKg = score?.wasteDivertedKg ?? 0
   const wasteT = (wasteDivertedKg / 1000).toFixed(1)
@@ -135,7 +147,7 @@ export function Debrief({ force }: { force?: boolean }) {
         <button
           type="button"
           className={styles.closeBtn}
-          onClick={() => setOpen(false)}
+          onClick={() => { setOpen(false); bus.emit('mission:reset') }}
         >
           Acknowledge
         </button>
