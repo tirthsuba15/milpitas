@@ -37,15 +37,17 @@ const SUN_POS: [number, number, number] = [
 export function WorldEnvironment() {
   return (
     <>
-      {/* Bright clear-day blue sky with a real sun disc. Lower turbidity +
-          rayleigh → a crisp saturated blue with a clean horizon (less haze). */}
+      {/* Bright clear-day blue sky with a real sun disc. turbidity=1.0 keeps
+          the sky a deep saturated blue with no milky haze; rayleigh=1.2 gives
+          a rich Rayleigh scattering gradient from zenith to horizon. Low
+          mieCoefficient so the sun corona stays tight and the air reads clear. */}
       <Sky
         distance={4500}
         sunPosition={SUN_POS}
-        turbidity={1.2}
-        rayleigh={1.0}
-        mieCoefficient={0.004}
-        mieDirectionalG={0.85}
+        turbidity={1.0}
+        rayleigh={1.2}
+        mieCoefficient={0.003}
+        mieDirectionalG={0.88}
       />
 
       {/* Image-based reflections only (NOT background — the <Sky> stays the
@@ -58,14 +60,15 @@ export function WorldEnvironment() {
       </Suspense>
 
       {/* Soft blue-from-sky / green-from-ground ambient fill, brighter so
-          shadowed faces stay open rather than crushing to black. */}
-      <hemisphereLight args={['#d6efff', '#6a7d45', 1.15]} />
-      <ambientLight intensity={0.22} />
+          shadowed faces stay open rather than crushing to black.
+          Sky colour boosted slightly for a crisp midday read. */}
+      <hemisphereLight args={['#c8e8ff', '#6a7d45', 1.3]} />
+      <ambientLight intensity={0.25} />
 
       {/* The sun — parallel rays, casts the scene's shadows across the map */}
       <directionalLight
         position={SUN_POS}
-        intensity={3.1}
+        intensity={3.6}
         color="#fff4e0"
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -80,10 +83,12 @@ export function WorldEnvironment() {
         target-position={CENTER}
       />
 
-      {/* Atmospheric haze: clear over the whole 500 m map, fading the far grass
-          surround into the pale-blue horizon. Start beyond the grid corners
-          (~354 m from center) so nothing on the map is washed out. */}
-      <fog attach="fog" args={['#cfe2f2', 700, 2800]} />
+      {/* Atmospheric haze: city stays fully crisp (near=800, well beyond the
+          ~354 m grid-corner radius), far=1500 dissolves the trimmed surround
+          edge (~650 m from centre) into the sky-matched horizon colour.
+          Fog colour matches the pale daytime horizon of the Sky shader so the
+          ground fades smoothly into sky with no visible hard edge or void. */}
+      <fog attach="fog" args={['#c4dcf2', 800, 1500]} />
     </>
   )
 }

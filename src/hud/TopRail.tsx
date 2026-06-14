@@ -2,8 +2,17 @@ import { useEffect, useState } from 'react'
 import { useWorldStore } from '@/store/worldStore'
 import styles from './hud.module.css'
 
-// UTC is the default operational reference; the dropdown switches the main time zone.
+// The clock shows the real, current wall-clock time (new Date(), ticked every
+// second) formatted into the selected zone — NOT app uptime. Default is the
+// viewer's LOCAL zone so it always reads as "right now"; the dropdown switches
+// the reference zone. UTC etc. remain available.
+const LOCAL_TZ = (() => {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' }
+  catch { return 'UTC' }
+})()
+
 const ZONES = [
+  { code: 'LOCAL', tz: LOCAL_TZ },
   { code: 'UTC', tz: 'UTC' },
   { code: 'SFO', tz: 'America/Los_Angeles' },
   { code: 'NYC', tz: 'America/New_York' },
@@ -32,7 +41,7 @@ export function TopRail() {
   const isRunning = useWorldStore(s => s.isRunning)
 
   const now = useNow()
-  const [zoneCode, setZoneCode] = useState('UTC')
+  const [zoneCode, setZoneCode] = useState('LOCAL')
   const zone = ZONES.find(z => z.code === zoneCode) ?? ZONES[0]
   const localTime = timeIn(now, zone.tz, true)
 

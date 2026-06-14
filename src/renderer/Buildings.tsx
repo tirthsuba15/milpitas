@@ -52,6 +52,11 @@ function House({ site }: { site: BuildSite }) {
   const halfD = D / 2
 
   const progress = site.modulesRequired > 0 ? site.modulesComplete / site.modulesRequired : 0
+
+  // Pre-construction guard: suppress the bare grey pad entirely in the cold-open.
+  // As soon as the site goes active OR any module is placed the full build visual resumes.
+  if (site.status === 'planned' && progress <= 0.001) return null
+
   const wallHeight = Math.max(0.05, progress * 5)
   const isComplete = site.status === 'complete'
   const isActive = site.status === 'active'

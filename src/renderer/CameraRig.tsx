@@ -31,7 +31,7 @@ export function useCameraMode(): CameraMode {
 // map is resized. CENTER = real map center (250,250); the roam box is the map
 // half-extent plus a small margin so you can frame the edges.
 const CENTER = new THREE.Vector3(CENTER_X, 0, CENTER_Z)
-const WORLD_HALF = WORLD_SIZE_M / 2 + 60 // ±(250 + 60)m around center
+const WORLD_HALF = WORLD_SIZE_M / 2 + 40 // ±(250 + 40)m around center
 const MIN_Y = 2
 const MAX_Y = 400
 
@@ -61,9 +61,9 @@ function OrbitMode() {
     <OrbitControls
       makeDefault
       target={[CENTER_X, 0, CENTER_Z]}
-      minDistance={25}
+      minDistance={30}
       // pull back far enough to frame the entire 500m map with margin
-      maxDistance={950}
+      maxDistance={750}
       // stop just shy of horizontal so you can't dip below the ground plane
       maxPolarAngle={Math.PI / 2.12}
       minPolarAngle={0.15}

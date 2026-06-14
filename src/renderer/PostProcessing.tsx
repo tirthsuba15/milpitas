@@ -10,12 +10,13 @@ import { ToneMappingMode, BlendFunction } from 'postprocessing'
 export function PostProcessing() {
   return (
     // enableNormalPass is required for SSAO
-    <EffectComposer multisampling={4} enableNormalPass>
+    <EffectComposer multisampling={0} enableNormalPass>
       {/* SSAO — grounds objects, adds depth (cut first if FPS drops) */}
       <SSAO
         blendFunction={BlendFunction.MULTIPLY}
-        samples={16}
-        rings={3}
+        samples={8}
+        rings={2}
+        resolutionScale={0.75}
         intensity={8}
         luminanceInfluence={0.6}
         radius={0.05}

@@ -9,8 +9,9 @@ import {
 import { useWorldStore } from '@/store/worldStore'
 import type { ZoneType } from '@/types'
 
-// The vast grass field reaching the horizon (where <fog> dissolves it).
-const SURROUND_SIZE_M = 3000
+// Modest green frame around the 500 m city; far edge dissolves into fog
+// before it becomes visible as a hard square boundary.
+const SURROUND_SIZE_M = 1300
 
 export function Terrain() {
   const world = useWorldStore((s) => s.world)

@@ -2,6 +2,8 @@ import { Canvas } from '@react-three/fiber'
 import { Suspense } from 'react'
 import { Terrain } from './Terrain'
 import { Ecosystem } from './Ecosystem'
+import { CentralPark } from './CentralPark'
+import { ParkProps } from './ParkProps'
 import { WorldEnvironment } from './Environment'
 import { CameraRig, CameraControlUI } from './CameraRig'
 import { RobotFleet } from './RobotFleet'
@@ -19,7 +21,7 @@ export function Scene() {
     <Canvas
       shadows
       gl={{ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' }}
-      camera={{ fov: 55, near: 0.5, far: 6000, position: [250, 140, 560] }}
+      camera={{ fov: 55, near: 0.5, far: 6000, position: [250, 120, 440] }}
       dpr={[1, 1.5]}
     >
       <Suspense fallback={null}>
@@ -32,6 +34,13 @@ export function Scene() {
 
         {/* Procedural trees / rocks / bushes / grass tufts, clustered, instanced */}
         <Ecosystem />
+
+        {/* Community park in the disaster_core: lawn + pond + paths (shader/geometry only).
+            ParkProps (trees/benches/gazebo) loads GLBs so gets its own Suspense. */}
+        <CentralPark />
+        <Suspense fallback={null}>
+          <ParkProps />
+        </Suspense>
 
         {/* Suburban set-dressing rendered from the seeded layout DATA: real GLB
             houses/civic blocks + street props (cars, lights, fences, mailboxes,
