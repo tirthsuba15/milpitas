@@ -93,15 +93,21 @@ export class Commander {
     const persons = state.entities.filter((e) => e.kind === 'person')
 
     const totalDronesDeployed = robots.filter((e) => (e as any).type === 'recon_drone').length
-    const builders = robots.filter((e) => (e as any).type === 'builder_robot')
-    const totalTeamsDeployed = builders.length
+    // Count responders (restoration_unit) as "teams"; fall back to builder_robot for legacy worlds.
+    const responders = robots.filter((e) => (e as any).type === 'restoration_unit')
+    const builders  = robots.filter((e) => (e as any).type === 'builder_robot')
+    const totalTeamsDeployed = responders.length || builders.length
 
     const housesTotal = state.buildSites.length
     const housesCompleted = state.buildSites.filter((s) => s.status === 'complete').length
 
-    const survivors = persons.filter((e) => (e as any).subtype === 'survivor')
-    const survivorsTotal = survivors.length
-    const survivorsRescued = survivors.filter((e) => {
+    // Displaced families are the "people" in the new world — housed = mission success.
+    // Legacy worlds may also have survivor subtype; count both.
+    const families = persons.filter((e) =>
+      (e as any).subtype === 'displaced_family' || (e as any).subtype === 'survivor'
+    )
+    const survivorsTotal = families.length
+    const survivorsRescued = families.filter((e) => {
       const status = (e as any).status
       return status === 'rescued' || status === 'housed'
     }).length
