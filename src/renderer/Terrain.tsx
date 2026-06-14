@@ -4,6 +4,7 @@ import { useTexture } from '@react-three/drei'
 import {
   GRID_W, GRID_H, CELL_SIZE_M, WORLD_SIZE_M, CENTER_X, CENTER_Z,
   CORE_MIN_X, CORE_MIN_Z, CORE_MAX_X, CORE_MAX_Z,
+  makeRng,
 } from '@/simulation/grid'
 import { useWorldStore } from '@/store/worldStore'
 import type { ZoneType } from '@/types'
@@ -247,7 +248,11 @@ function RubbleMounds() {
     if (!mesh) return
 
     const dummy = new THREE.Object3D()
-    const rng = (min: number, max: number) => min + Math.random() * (max - min)
+    // Seeded PRNG so the rubble layout is identical on every load (stable for
+    // recorded demos). Fixed seed → deterministic placement. ("RUBBLE" → hex)
+    const RUBBLE_SEED = 0x0ec0bb1e // a fixed constant; any fixed number works
+    const rand = makeRng(RUBBLE_SEED)
+    const rng = (min: number, max: number) => min + rand() * (max - min)
 
     for (let i = 0; i < 120; i++) {
       const x = CORE_MIN_X + rng(5, 90)

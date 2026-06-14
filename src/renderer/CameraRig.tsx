@@ -1,15 +1,39 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
-import { OrbitControls, Html } from '@react-three/drei'
+import { OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
+import { CENTER_X, CENTER_Z, WORLD_SIZE_M } from '@/simulation/grid'
 
-type CameraMode = 'orbit' | 'free'
+export type CameraMode = 'orbit' | 'free'
+
+// ── tiny external store for camera mode ─────────────────────────────────────
+// Shared so the THREE-side rig (inside <Canvas>) and the plain-DOM control
+// overlay (rendered OUTSIDE <Canvas>, in Scene.tsx) read/write the same state.
+// The overlay must live in the normal DOM layer — never inside the R3F tree —
+// so it stays a fixed screen overlay and never rotates with the camera.
+let cameraMode: CameraMode = 'orbit'
+const modeListeners = new Set<() => void>()
+function setCameraMode(m: CameraMode) {
+  if (m === cameraMode) return
+  cameraMode = m
+  modeListeners.forEach((l) => l())
+}
+function subscribeMode(cb: () => void) {
+  modeListeners.add(cb)
+  return () => modeListeners.delete(cb)
+}
+export function useCameraMode(): CameraMode {
+  return useSyncExternalStore(subscribeMode, () => cameraMode, () => cameraMode)
+}
 
 // World extents — the camera may not travel beyond this box around the world.
-const CENTER = new THREE.Vector3(125, 0, 125)
-const WORLD_HALF = 600 // clamp roam to ±600m of the core
-const MIN_Y = 3
-const MAX_Y = 420
+// Derived from the live grid constants so the camera stays centered when the
+// map is resized. CENTER = real map center (250,250); the roam box is the map
+// half-extent plus a small margin so you can frame the edges.
+const CENTER = new THREE.Vector3(CENTER_X, 0, CENTER_Z)
+const WORLD_HALF = WORLD_SIZE_M / 2 + 60 // ±(250 + 60)m around center
+const MIN_Y = 2
+const MAX_Y = 400
 
 /**
  * Dual-mode camera rig.
@@ -23,27 +47,23 @@ const MAX_Y = 420
  *  A/D strafe, Q/E (or Space/Shift) up-down, mouse-drag to look. Position is
  *  clamped to the world box every frame so it can never leave the limit.
  *
- * The mode toggle UI is rendered via drei <Html> docked at the bottom-left of
- * the dashboard so it needs no App changes.
+ * NOTE: this component lives INSIDE <Canvas>, so it only renders THREE content.
+ * The mode toggle UI is a plain fixed DOM overlay rendered OUTSIDE the canvas
+ * (see <CameraControlUI /> in Scene.tsx) so it never moves with the camera.
  */
 export function CameraRig() {
-  const [mode, setMode] = useState<CameraMode>('orbit')
-
-  return (
-    <>
-      {mode === 'orbit' ? <OrbitMode /> : <FreeRoamMode />}
-      <CameraControlUI mode={mode} onChange={setMode} />
-    </>
-  )
+  const mode = useCameraMode()
+  return mode === 'orbit' ? <OrbitMode /> : <FreeRoamMode />
 }
 
 function OrbitMode() {
   return (
     <OrbitControls
       makeDefault
-      target={[125, 0, 125]}
+      target={[CENTER_X, 0, CENTER_Z]}
       minDistance={25}
-      maxDistance={520}
+      // pull back far enough to frame the entire 500m map with margin
+      maxDistance={950}
       // stop just shy of horizontal so you can't dip below the ground plane
       maxPolarAngle={Math.PI / 2.12}
       minPolarAngle={0.15}
@@ -57,8 +77,8 @@ function OrbitMode() {
         const ctrl = e?.target as unknown as { target: THREE.Vector3 } | undefined
         if (!ctrl) return
         const t = ctrl.target
-        t.x = THREE.MathUtils.clamp(t.x, 125 - WORLD_HALF, 125 + WORLD_HALF)
-        t.z = THREE.MathUtils.clamp(t.z, 125 - WORLD_HALF, 125 + WORLD_HALF)
+        t.x = THREE.MathUtils.clamp(t.x, CENTER.x - WORLD_HALF, CENTER.x + WORLD_HALF)
+        t.z = THREE.MathUtils.clamp(t.z, CENTER.z - WORLD_HALF, CENTER.z + WORLD_HALF)
         t.y = THREE.MathUtils.clamp(t.y, 0, 60)
       }}
     />
@@ -136,8 +156,9 @@ function FreeRoamMode() {
     camera.quaternion.setFromEuler(euler.current)
 
     const k = keys.current
-    const boost = k['ShiftLeft'] || k['ShiftRight'] ? 2.4 : 1
-    const speed = 60 * boost * Math.min(delta, 0.05)
+    const boost = k['ShiftLeft'] || k['ShiftRight'] ? 2.6 : 1
+    // Base ~140 m/s so crossing the 500m map feels responsive; Shift sprints.
+    const speed = 140 * boost * Math.min(delta, 0.05)
 
     // ground-plane forward/right derived from yaw only (so W stays horizontal)
     const yaw = euler.current.y
@@ -167,21 +188,22 @@ function FreeRoamMode() {
   return null
 }
 
-// ── docked control UI (drei <Html>, fixed to the viewport) ──────────────────
+// ── camera control overlay (PLAIN DOM, rendered OUTSIDE <Canvas>) ───────────
+// This is a normal fixed-position DOM overlay — NOT a drei <Html> and NOT a
+// child of <Canvas>. It is mounted from Scene.tsx as a sibling of the canvas,
+// so it lives in the regular DOM layer and never rotates/moves with the 3D
+// camera. It reads camera mode from the shared external store above.
 
-function CameraControlUI({
-  mode,
-  onChange,
-}: {
-  mode: CameraMode
-  onChange: (m: CameraMode) => void
-}) {
-  // Dashboard occupies the right ~436px; bottom bar is ~44px tall. Dock the
-  // control just left of the dashboard, above the bottom bar.
+export function CameraControlUI() {
+  const mode = useCameraMode()
+  const onChange = setCameraMode
+
+  // Dock the camera control at the BOTTOM-LEFT of the viewport, readable over
+  // the 3D view with pointer events enabled.
   const wrap: React.CSSProperties = {
     position: 'fixed',
-    right: 448,
-    bottom: 52,
+    left: 16,
+    bottom: 16,
     zIndex: 45,
     pointerEvents: 'auto',
     userSelect: 'none',
@@ -223,34 +245,26 @@ function CameraControlUI({
   }
 
   return (
-    <Html
-      // render into the DOM, not the 3D scene; full-screen transform off
-      calculatePosition={() => [0, 0, 0]}
-      style={{ pointerEvents: 'none' }}
-      zIndexRange={[45, 45]}
-      prepend
-    >
-      <div style={wrap}>
-        <div style={panel}>
-          <div style={row}>
-            <button
-              type="button"
-              style={btn(mode === 'orbit')}
-              onClick={() => onChange('orbit')}
-            >
-              ◉ ORBIT
-            </button>
-            <button
-              type="button"
-              style={btn(mode === 'free')}
-              onClick={() => onChange('free')}
-            >
-              ✛ FREE ROAM
-            </button>
-          </div>
-          <div style={hint}>WASD / ARROWS · DRAG TO LOOK</div>
+    <div style={wrap}>
+      <div style={panel}>
+        <div style={row}>
+          <button
+            type="button"
+            style={btn(mode === 'orbit')}
+            onClick={() => onChange('orbit')}
+          >
+            ◉ ORBIT
+          </button>
+          <button
+            type="button"
+            style={btn(mode === 'free')}
+            onClick={() => onChange('free')}
+          >
+            ✛ FREE ROAM
+          </button>
         </div>
+        <div style={hint}>WASD / ARROWS · Q/E UP·DOWN · DRAG TO LOOK</div>
       </div>
-    </Html>
+    </div>
   )
 }

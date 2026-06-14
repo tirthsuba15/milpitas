@@ -1,6 +1,17 @@
 import * as THREE from 'three'
 
 /**
+ * Smooth Hermite interpolation (GLSL smoothstep). Returns 0 below `edge0`, 1
+ * above `edge1`, and an eased ramp in between — used to fade/scale build-stage
+ * details in over a small progress window instead of snapping at a threshold.
+ */
+export function smoothstep(edge0: number, edge1: number, x: number): number {
+  if (edge0 === edge1) return x < edge0 ? 0 : 1
+  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)))
+  return t * t * (3 - 2 * t)
+}
+
+/**
  * Deterministic PRNG seeded from a string (e.g. site.id) → stable per-building
  * variation that never changes between renders. FNV-1a hash → mulberry32.
  */

@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import { useWorldStore } from '@/store/worldStore'
 import { CELL_SIZE_M, isCoreCell } from '@/simulation/grid'
+import { ModelBoundary } from './ModelBoundary'
 import type { PlacedStructure, StructureType } from '@/types'
 
 /**
@@ -131,6 +132,35 @@ function StructureModel({ st }: { st: PlacedStructure }) {
   )
 }
 
+/**
+ * Placeholder for a structure whose GLB failed to load: a neutral house-colored
+ * box roughly the size of the lot footprint, seated on the ground. Keeps the
+ * suburb readable instead of leaving a hole where the model would be.
+ */
+function StructureFallback({ st }: { st: PlacedStructure }) {
+  const half = (st.footprintCells * CELL_SIZE_M) / 2
+  const wx = st.gridX * CELL_SIZE_M + half
+  const wz = st.gridZ * CELL_SIZE_M + half
+
+  // Match the same body footprint the real model targets, with a plausible height.
+  const footprint =
+    st.footprintCells * CELL_SIZE_M * FOOTPRINT_FILL *
+    (st.type === 'civic_block' ? CIVIC_EXTRA_SCALE : 1)
+  const height = st.type === 'civic_block' ? footprint * 1.1 : footprint * 0.8
+
+  return (
+    <mesh
+      position={[wx, height / 2, wz]}
+      rotation={[0, THREE.MathUtils.degToRad(st.rotationDeg), 0]}
+      castShadow
+      receiveShadow
+    >
+      <boxGeometry args={[footprint, height, footprint]} />
+      <meshStandardMaterial color="#c8bfb0" roughness={0.9} metalness={0} />
+    </mesh>
+  )
+}
+
 export function SuburbStructures() {
   const world = useWorldStore((s) => s.world)
 
@@ -152,7 +182,9 @@ export function SuburbStructures() {
   return (
     <group name="suburb-structures">
       {structures.map((st) => (
-        <StructureModel key={st.id} st={st} />
+        <ModelBoundary key={st.id} fallback={<StructureFallback st={st} />}>
+          <StructureModel st={st} />
+        </ModelBoundary>
       ))}
     </group>
   )

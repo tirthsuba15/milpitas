@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { useGLTF } from '@react-three/drei'
 import { useWorldStore } from '@/store/worldStore'
 import { CELL_SIZE_M, isCoreCell, makeRng } from '@/simulation/grid'
+import { ModelBoundary } from './ModelBoundary'
 import type { WorldState, ZoneType } from '@/types'
 
 /**
@@ -133,6 +134,19 @@ function PropBatch({ modelKey, placements }: { modelKey: ModelKey; placements: P
         />
       ))}
     </group>
+  )
+}
+
+/**
+ * PropBatch wrapped in an error boundary. Props are pure set-dressing, so if a
+ * single prop GLB fails to load we simply skip that batch (no-op fallback)
+ * rather than let it crash the suburb — the scene reads fine without it.
+ */
+function GuardedPropBatch({ modelKey, placements }: { modelKey: ModelKey; placements: Placement[] }) {
+  return (
+    <ModelBoundary fallback={null}>
+      <PropBatch modelKey={modelKey} placements={placements} />
+    </ModelBoundary>
   )
 }
 
@@ -267,13 +281,13 @@ export function SuburbProps() {
 
   return (
     <group name="suburb-props">
-      {cars1.length > 0 && <PropBatch modelKey="car1" placements={cars1} />}
-      {cars2.length > 0 && <PropBatch modelKey="car2" placements={cars2} />}
-      {plan.lights.length > 0 && <PropBatch modelKey="streetlight" placements={plan.lights} />}
-      {plan.fences.length > 0 && <PropBatch modelKey="fence" placements={plan.fences} />}
-      {plan.fencesMetal.length > 0 && <PropBatch modelKey="fenceMetal" placements={plan.fencesMetal} />}
-      {plan.mailboxes.length > 0 && <PropBatch modelKey="mailbox" placements={plan.mailboxes} />}
-      {plan.benches.length > 0 && <PropBatch modelKey="bench" placements={plan.benches} />}
+      {cars1.length > 0 && <GuardedPropBatch modelKey="car1" placements={cars1} />}
+      {cars2.length > 0 && <GuardedPropBatch modelKey="car2" placements={cars2} />}
+      {plan.lights.length > 0 && <GuardedPropBatch modelKey="streetlight" placements={plan.lights} />}
+      {plan.fences.length > 0 && <GuardedPropBatch modelKey="fence" placements={plan.fences} />}
+      {plan.fencesMetal.length > 0 && <GuardedPropBatch modelKey="fenceMetal" placements={plan.fencesMetal} />}
+      {plan.mailboxes.length > 0 && <GuardedPropBatch modelKey="mailbox" placements={plan.mailboxes} />}
+      {plan.benches.length > 0 && <GuardedPropBatch modelKey="bench" placements={plan.benches} />}
     </group>
   )
 }

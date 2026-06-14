@@ -31,12 +31,56 @@ export function RobotFleet() {
   )
 }
 
+// Minimum horizontal speed (per frame) before we trust a heading update.
+// Below this we treat the unit as stationary and keep its last heading.
+const HEADING_MOVE_THRESHOLD = 0.0008
+// How quickly the unit yaws toward its target heading (higher = snappier).
+const YAW_DAMP = 6
+
 function RobotMesh({ robot }: { robot: RobotEntity }) {
   const isDrone = robot.type === 'recon_drone'
   const glowColor = STATUS_COLORS[robot.status]
 
+  const groupRef = useRef<THREE.Group>(null)
+  // Previous horizontal position, used to derive per-frame velocity.
+  const prevPos = useRef<{ x: number; z: number } | null>(null)
+  // Target yaw the unit is turning toward; retained while stationary.
+  const targetYaw = useRef<number | null>(null)
+
+  useFrame((_, delta) => {
+    const group = groupRef.current
+    if (!group) return
+
+    const { x, z } = robot.position
+
+    // Keep the group's translation in sync with the latest sim position.
+    group.position.set(x, robot.position.y, z)
+
+    if (prevPos.current) {
+      const dx = x - prevPos.current.x
+      const dz = z - prevPos.current.z
+      const dist = Math.hypot(dx, dz)
+      if (dist > HEADING_MOVE_THRESHOLD) {
+        // Model forward axis is +Z (ground unit's visor sits at +Z), so the
+        // yaw that points +Z along (dx, dz) is atan2(dx, dz) — no extra offset.
+        targetYaw.current = Math.atan2(dx, dz)
+      }
+    }
+    prevPos.current = { x, z }
+
+    if (targetYaw.current !== null) {
+      // Smoothly damp the current yaw toward the target, taking the shortest
+      // angular path so the unit turns rather than snapping.
+      const current = group.rotation.y
+      let diff = targetYaw.current - current
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff))
+      const t = 1 - Math.exp(-YAW_DAMP * delta)
+      group.rotation.y = current + diff * t
+    }
+  })
+
   return (
-    <group position={[robot.position.x, robot.position.y, robot.position.z]}>
+    <group ref={groupRef} position={[robot.position.x, robot.position.y, robot.position.z]}>
       {isDrone ? <DroneMesh /> : <GroundUnitMesh />}
       <GlowRing color={glowColor} pulse={robot.status === 'working'} />
     </group>

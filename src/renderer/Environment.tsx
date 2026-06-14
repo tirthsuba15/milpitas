@@ -1,4 +1,5 @@
-import { Sky } from '@react-three/drei'
+import { Suspense } from 'react'
+import { Environment, Sky } from '@react-three/drei'
 import { CENTER_X, CENTER_Z } from '@/simulation/grid'
 
 // World centre — the 500 m map is centred on the disaster core at (250,250);
@@ -9,7 +10,7 @@ const CENTER: [number, number, number] = [CENTER_X, 0, CENTER_Z]
 // Kept far away so the directional light reads as parallel sun rays.
 const SUN_DISTANCE = 1200
 const SUN_AZIMUTH = -0.7 // radians, slightly behind/left
-const SUN_ELEVATION = 0.9 // radians up from horizon (~52°) — bright midday-ish
+const SUN_ELEVATION = 1.05 // radians up from horizon (~60°) — high bright midday sun
 const SUN_POS: [number, number, number] = [
   CENTER[0] + Math.cos(SUN_ELEVATION) * Math.cos(SUN_AZIMUTH) * SUN_DISTANCE,
   Math.sin(SUN_ELEVATION) * SUN_DISTANCE,
@@ -36,25 +37,36 @@ const SUN_POS: [number, number, number] = [
 export function WorldEnvironment() {
   return (
     <>
-      {/* Bright daytime blue sky with a real sun disc */}
+      {/* Bright clear-day blue sky with a real sun disc. Lower turbidity +
+          rayleigh → a crisp saturated blue with a clean horizon (less haze). */}
       <Sky
         distance={4500}
         sunPosition={SUN_POS}
-        turbidity={1.8}
-        rayleigh={1.4}
-        mieCoefficient={0.005}
+        turbidity={1.2}
+        rayleigh={1.0}
+        mieCoefficient={0.004}
         mieDirectionalG={0.85}
       />
 
-      {/* Soft blue-from-sky / green-from-ground ambient fill */}
-      <hemisphereLight args={['#cdeaff', '#5d7038', 0.9]} />
-      <ambientLight intensity={0.14} />
+      {/* Image-based reflections only (NOT background — the <Sky> stays the
+          backdrop). A "park" preset matches a bright sunny day and gives
+          metal/glass surfaces real reflections. Loaded from drei's CDN, wrapped
+          in <Suspense> so a load hiccup can never black-screen the canvas.
+          Modest intensity so it adds sparkle without washing out the sky. */}
+      <Suspense fallback={null}>
+        <Environment preset="park" background={false} environmentIntensity={0.45} />
+      </Suspense>
+
+      {/* Soft blue-from-sky / green-from-ground ambient fill, brighter so
+          shadowed faces stay open rather than crushing to black. */}
+      <hemisphereLight args={['#d6efff', '#6a7d45', 1.15]} />
+      <ambientLight intensity={0.22} />
 
       {/* The sun — parallel rays, casts the scene's shadows across the map */}
       <directionalLight
         position={SUN_POS}
-        intensity={2.2}
-        color="#fff6e8"
+        intensity={3.1}
+        color="#fff4e0"
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}

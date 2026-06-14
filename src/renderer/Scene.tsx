@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { Terrain } from './Terrain'
 import { Ecosystem } from './Ecosystem'
 import { WorldEnvironment } from './Environment'
-import { CameraRig } from './CameraRig'
+import { CameraRig, CameraControlUI } from './CameraRig'
 import { RobotFleet } from './RobotFleet'
 import { Markers } from './Markers'
 import { Hazards } from './Hazards'
@@ -15,10 +15,11 @@ import { PostProcessing } from './PostProcessing'
 
 export function Scene() {
   return (
+    <>
     <Canvas
       shadows
       gl={{ antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance' }}
-      camera={{ fov: 55, near: 0.5, far: 6000, position: [125, 120, 320] }}
+      camera={{ fov: 55, near: 0.5, far: 6000, position: [250, 140, 560] }}
       dpr={[1, 1.5]}
     >
       <Suspense fallback={null}>
@@ -50,10 +51,14 @@ export function Scene() {
         <Markers />
         <PostProcessing />
 
-        {/* Dual-mode camera: ORBIT (range-limited) + FREE ROAM (WASD, clamped).
-            Renders its own bottom-docked control UI. */}
+        {/* Dual-mode camera: ORBIT (range-limited) + FREE ROAM (WASD, clamped). */}
         <CameraRig />
       </Suspense>
     </Canvas>
+
+    {/* Camera mode toggle — plain fixed DOM overlay, OUTSIDE the canvas so it
+        never moves with the 3D camera. Pinned bottom-left. */}
+    <CameraControlUI />
+    </>
   )
 }
