@@ -9,9 +9,9 @@ export function SetupScreen({
 }) {
   const [houses, setHouses] = useState(8)
   const [drones, setDrones] = useState(2)
-  const [teams, setTeams] = useState(6)
 
-  const estimate = Math.max(1, Math.round((houses * 2) / teams))
+  const responders = Math.max(2, Math.ceil(houses * 0.75))
+  const estimate = Math.max(1, Math.round((houses * 2) / responders))
 
   return (
     <div style={overlay} role="dialog" aria-modal="true" aria-label="Mission Setup">
@@ -24,7 +24,7 @@ export function SetupScreen({
         <div style={sliders}>
           <Slider
             id="setup-houses"
-            label="Damaged houses"
+            label="Houses (all damaged)"
             min={4}
             max={20}
             value={houses}
@@ -32,20 +32,17 @@ export function SetupScreen({
           />
           <Slider
             id="setup-drones"
-            label="Drones to deploy"
+            label="Recon drones"
             min={1}
             max={5}
             value={drones}
             onChange={setDrones}
           />
-          <Slider
-            id="setup-teams"
-            label="Response teams"
-            min={2}
-            max={12}
-            value={teams}
-            onChange={setTeams}
-          />
+        </div>
+
+        <div style={autoRow}>
+          <span style={autoLabel}>Responders (auto)</span>
+          <span style={autoVal}>{responders}</span>
         </div>
 
         <div style={estimateLine} aria-live="polite">
@@ -55,7 +52,7 @@ export function SetupScreen({
         <button
           type="button"
           style={deployBtn}
-          onClick={() => onDeploy(houses, drones, teams)}
+          onClick={() => onDeploy(houses, drones, responders)}
         >
           Deploy Mission
         </button>
@@ -186,6 +183,28 @@ const range: CSSProperties = {
   width: '100%',
   accentColor: ACCENT,
   cursor: 'pointer',
+}
+
+const autoRow: CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  justifyContent: 'space-between',
+  padding: '10px 0',
+  borderTop: '1px solid rgba(255,255,255,0.07)',
+  marginBottom: 10,
+}
+
+const autoLabel: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 500,
+  color: '#9aa4ad',
+}
+
+const autoVal: CSSProperties = {
+  fontSize: 20,
+  fontWeight: 700,
+  fontVariantNumeric: 'tabular-nums',
+  color: ACCENT,
 }
 
 const estimateLine: CSSProperties = {

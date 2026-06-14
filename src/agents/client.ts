@@ -186,7 +186,10 @@ function extractJson(text: string): string {
 
 // Phase 5: after-action debrief. Plain prose, NOT the JSON planning format — so it
 // uses its own system prompt rather than SYSTEM_PROMPT (which caps output to a headline).
+// Respects the same LLM_ENABLED gate as planningCall so non-LLM mode uses the
+// deterministic assessmentText() fallback without spending a single API token.
 export async function debriefCall(worldSummary: string): Promise<string | null> {
+  if (!LLM_ENABLED) return null
   try {
     const response = await getClient().messages.create({
       model: 'claude-sonnet-4-6',

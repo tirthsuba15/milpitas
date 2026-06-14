@@ -100,6 +100,7 @@ export default function App() {
     const off = bus.on('mission:reset', () => {
       setRunning(false)
       setDeployed(false)
+      useWorldStore.getState().setDebrief('')
       const w = new World(createInitialWorld())
       worldRef.current = w
       debriefDoneRef.current = false
@@ -119,20 +120,12 @@ export default function App() {
       setWorld({ ...world.state })
 
       // Mission complete → produce the after-action debrief once, for the end-of-run overlay.
+      // commander.generateDebrief() handles both modes: LLM call when enabled, deterministic
+      // assessmentText() fallback otherwise — always specific numbers, never vague.
       if (world.state.phase === 'complete' && !debriefDoneRef.current) {
         debriefDoneRef.current = true
         const s = world.state
-        if (import.meta.env.VITE_USE_LLM === 'true') {
-          // LLM-written debrief (only when the operator opted in — keeps it $0 by default).
-          commander.generateDebrief(s).then((text) => useWorldStore.getState().setDebrief(text))
-        } else {
-          // Deterministic templated debrief — no spend.
-          useWorldStore.getState().setDebrief(
-            `Mission complete — ${s.score.familiesHoused}/${s.score.familiesTotal} families housed ` +
-              `(${s.score.vulnerableHousedPct}% vulnerable-first), ${s.carbon.avoidedKgCo2e.toFixed(0)} kgCO2e avoided ` +
-              `vs the conventional baseline.`,
-          )
-        }
+        commander.generateDebrief(s).then((text) => useWorldStore.getState().setDebrief(text))
       }
 
       // AI planning (async, non-blocking)
