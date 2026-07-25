@@ -9,3 +9,14 @@ public/models/*.gltf
 # local tooling / artifacts — never commit
 .claude/
 ruvector.db
+
+.claude/
+ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
+.DS_Store
+__pycache__/
+*.pyc
+.playwright-mcp/
+vite.config.js.timestamp-*
+tsconfig.tsbuildinfo
